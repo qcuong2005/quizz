@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,19 +21,34 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    private String role; // Lưu "ROLE_ADMIN" hoặc "ROLE_USER"
+    private String role; // Lưu "admin" hoặc "user"
 
-    // Getters, Setters, Constructors
+    // ✅ THÊM MỚI: Trường Họ và Tên (để khớp với form đăng ký)
+    @Column(name = "full_name")
+    private String fullName;
+
+    // 1. Constructor mặc định (Bắt buộc cho Hibernate)
     public User() {
     }
 
-    public User(String username, String password, String role) {
+    // 2. Constructor có tham số (Tiện để new đối tượng nhanh)
+    public User(String username, String password, String role, String fullName) {
         this.username = username;
         this.password = password;
         this.role = role;
+        this.fullName = fullName;
     }
 
-    // Bạn tự generate Getters/Setters nhé (hoặc dùng Lombok @Data)
+    // 3. Getters và Setters đầy đủ
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getUsername() {
         return username;
     }
@@ -55,5 +71,13 @@ public class User {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 }
