@@ -29,15 +29,13 @@ public class SecurityConfig {
         this.userInfoService = userInfoService;
     }
 
-    // ... các import cũ
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Kích hoạt CORS config
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // 1. Cho phép truy cập Login, Register VÀ Trang giao diện Swagger
-                        // Lý do: Phải cho họ vào trang giao diện thì họ mới có chỗ để bấm nút
-                        // "Authorize"
                         .requestMatchers(
                                 "/auth/**",
                                 "/v3/api-docs/**",
@@ -47,11 +45,24 @@ public class SecurityConfig {
 
                         // 2. Các API khác vẫn cần đăng nhập mới gọi được
                         .anyRequest().authenticated())
-                // ... giữ nguyên phần còn lại
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // Cấu hình CORS để cho phép Frontend (localhost:3000) gọi xuống
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+        configuration.setAllowedOrigins(java.util.List.of("http://localhost:3000")); // Chỉ cho phép domain này
+        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(java.util.List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     // Mã hóa mật khẩu (Để không lưu password thô trong DB)
