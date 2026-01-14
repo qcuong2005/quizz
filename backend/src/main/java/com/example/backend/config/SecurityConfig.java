@@ -38,14 +38,19 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+
                 // 1. KÍCH HOẠT CORS (QUAN TRỌNG NHẤT ĐỂ FIX LỖI FAILED TO FETCH)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 // 2. Tắt CSRF (Do dùng Token nên không cần)
+
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Kích hoạt CORS config
+
                 .csrf(AbstractHttpConfigurer::disable)
 
                 // 3. Phân quyền
                 .authorizeHttpRequests(auth -> auth
+
                         // Cho phép truy cập tự do vào các API này (Login, Register, Swagger)
                         .requestMatchers(
                                 "/auth/**", // Auth Controller
@@ -55,15 +60,28 @@ public class SecurityConfig {
                                 "/swagger-ui.html" // Swagger Index
                         ).permitAll()
 
+                        // 1. Cho phép truy cập Login, Register VÀ Trang giao diện Swagger
+                        .requestMatchers(
+                                "/auth/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/ws-quiz/**")
+                        .permitAll()
+
+
                         // Các API khác bắt buộc phải có Token
                         .anyRequest().authenticated())
 
+
                 // 4. Cấu hình Provider và Filter
+
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
 
     // --- CẤU HÌNH CHI TIẾT CORS (MỞ CỬA CHO TẤT CẢ) ---
     @Bean
@@ -81,11 +99,26 @@ public class SecurityConfig {
 
         // Đăng ký cấu hình này cho mọi đường dẫn (/**)
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+    // Cấu hình CORS để cho phép Frontend (localhost:3000) gọi xuống
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+        configuration.setAllowedOrigins(java.util.List.of("http://localhost:3000")); // Chỉ cho phép domain này
+        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(java.util.List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
+
     // --- CÁC BEAN CŨ GIỮ NGUYÊN ---
+
+    // Mã hóa mật khẩu (Để không lưu password thô trong DB)
 
     @Bean
     public PasswordEncoder passwordEncoder() {

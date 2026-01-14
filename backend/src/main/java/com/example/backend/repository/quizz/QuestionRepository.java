@@ -7,6 +7,7 @@ import com.example.backend.entity.quizz.Question;
 
 @Repository
 public interface QuestionRepository extends JpaRepository<Question, Long> {
-    // Sau này có thể thêm hàm tìm kiếm theo chủ đề
-    // List<Question> findByTopic(String topic);
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM questions WHERE topic = :topic ORDER BY RAND() LIMIT 1", nativeQuery = true)
+    java.util.Optional<Question> findRandomQuestionByTopic(
+            @org.springframework.data.repository.query.Param("topic") String topic);
 }
