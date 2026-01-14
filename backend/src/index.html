@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Hệ Thống Quiz AI Thông Minh</title>
+    <style>
+        :root {
+            --primary: #4e54c8;
+            --secondary: #8f94fb;
+            --bg-color: #f4f4f9;
+            --text-color: #333;
+            --white: #ffffff;
+            --error: #c62828;
+            --success: #2e7d32;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--white);
+            padding: 2.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 540px;
+            transition: all 0.3s ease;
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 2rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.9rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(78, 84, 200, 0.15);
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 0.95rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.25s;
+            margin-top: 0.6rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3b40a3;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: rgba(78, 84, 200, 0.08);
+        }
+
+        .switch-auth {
+            text-align: center;
+            margin-top: 1.2rem;
+            font-size: 0.95rem;
+            color: #555;
+        }
+
+        .switch-auth a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .switch-auth a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── QUIZ AREA ── */
+        #app-screen {
+            max-width: 720px;
+        }
+
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.8rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #eee;
+        }
+
+        .user-info {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #444;
+        }
+
+        .logout-btn {
+            background: #ff4b2b;
+            color: white;
+            padding: 0.5rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .logout-btn:hover {
+            background: #e6392b;
+        }
+
+        .question-box {
+            background: #f9f9fb;
+            padding: 1.6rem;
+            border-radius: 10px;
+            border-left: 5px solid var(--primary);
+            margin-bottom: 1.8rem;
+            font-size: 1.15rem;
+            line-height: 1.45;
+            font-weight: 500;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .option-btn {
+            background: white;
+            border: 1.5px solid #ddd;
+            padding: 1.1rem 1.4rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            font-size: 1.05rem;
+        }
+
+        .option-btn:hover {
+            border-color: var(--secondary);
+            background: #f5f7ff;
+            transform: translateY(-2px);
+        }
+
+        .option-btn.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .message-box {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1.2rem;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .error   { background: #ffebee; color: var(--error); }
+        .success { background: #e8f5e9; color: var(--success); }
+        .info    { background: #e3f2fd; color: #0d47a1; }
+    </style>
+</head>
+<body>
+
+    <!-- Login -->
+    <div id="login-screen" class="container">
+        <h2>👋 Đăng Nhập</h2>
+        <div class="form-group">
+            <label>Tên đăng nhập</label>
+            <input type="text" id="login-username" placeholder="Nhập username..." autocomplete="username"/>
+        </div>
+        <div class="form-group">
+            <label>Mật khẩu</label>
+            <input type="password" id="login-password" placeholder="Nhập mật khẩu..." autocomplete="current-password"/>
+        </div>
+        <button class="btn-full btn-primary" onclick="handleLogin()">ĐĂNG NHẬP</button>
+        <div class="message-box error" id="login-error"></div>
+
+        <div class="switch-auth">
+            Chưa có tài khoản? <a onclick="switchView('register')">Đăng ký ngay</a>
+        </div>
+    </div>
+
+    <!-- Register -->
+    <div id="register-screen" class="container hidden">
+        <h2>✨ Tạo Tài Khoản</h2>
+        <div class="form-group">
+            <label>Họ và tên</label>
+            <input type="text" id="reg-fullname" placeholder="VD: Nguyễn Văn A" autocomplete="name"/>
+        </div>
+        <div class="form-group">
+            <label>Tên đăng nhập</label>
+            <input type="text" id="reg-username" placeholder="Chọn username..." autocomplete="username"/>
+        </div>
+        <div class="form-group">
+            <label>Mật khẩu</label>
+            <input type="password" id="reg-password" placeholder="Nhập mật khẩu..." autocomplete="new-password"/>
+        </div>
+        <button class="btn-full btn-primary" onclick="handleRegister()">ĐĂNG KÝ</button>
+
+        <div class="message-box error" id="reg-error"></div>
+        <div class="message-box success" id="reg-success"></div>
+
+        <div class="switch-auth">
+            Đã có tài khoản? <a onclick="switchView('login')">Đăng nhập</a>
+        </div>
+    </div>
+
+    <!-- Main Quiz App -->
+    <div id="app-screen" class="container hidden">
+        <div class="quiz-header">
+            <span class="user-info">👤 Chào, <span id="display-name">User</span></span>
+            <button class="logout-btn" onclick="handleLogout()">Đăng xuất</button>
+        </div>
+
+        <div class="form-group">
+            <label>Chọn chủ đề bạn muốn thử thách:</label>
+            <select id="topic-select">
+                <option value="Toán">Toán Học (Tư duy & Logic)</option>
+                <option value="Văn">Văn Học</option>
+                <option value="Sử">Lịch Sử</option>
+                <option value="Địa">Địa Lý</option>
+                <option value="Tiếng Anh">Tiếng Anh (IELTS/Vocab)</option>
+                <option value="Đố vui">Đố Vui Hại Não</option>
+                <option value="Đố mẹo">Đố Mẹo Trinh Thám</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-full btn-primary" onclick="generateQuiz(false)">🎯 Tạo Câu Hỏi (Lưu DB)</button>
+            <button class="btn-full btn-outline" onclick="generateQuiz(true)">⚡ Test Nhanh (No DB)</button>
+        </div>
+
+        <div id="loading-msg" class="message-box info">⏳ AI đang suy nghĩ... vui lòng chờ...</div>
+
+        <div id="quiz-content" class="hidden">
+            <div class="question-box" id="q-text"></div>
+            <div class="options-grid" id="options-area"></div>
+            <div class="message-box" id="result-msg"></div>
+        </div>
+    </div>
+
+    <script>
+        // CẤU HÌNH
+        const BASE_URL = "http://localhost:8080";
+        const API_AUTH = `${BASE_URL}/auth`;
+        const API_QUIZ = `${BASE_URL}/api/quiz`;
+
+        let currentToken = localStorage.getItem("quiz_token") || null;
+        let currentCorrectAnswer = "";
+
+        // ── UTILS ────────────────────────────────────────
+        function showMessage(id, text, type = 'error') {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = `message-box ${type}`;
+            el.style.display = 'block';
+        }
+
+        function hideMessage(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function switchView(view) {
+            document.querySelectorAll('.container').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`${view}-screen`).classList.remove('hidden');
+        }
+
+        // ── AUTH CHECK ───────────────────────────────────
+        function checkAuth() {
+            if (currentToken) {
+                document.getElementById('display-name').textContent = 
+                    localStorage.getItem("quiz_username") || "User";
+                switchView('app');
+            } else {
+                switchView('login');
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem("quiz_token");
+            localStorage.removeItem("quiz_username");
+            currentToken = null;
+            location.reload();
+        }
+
+        // ── LOGIN ────────────────────────────────────────
+        async function handleLogin() {
+            hideMessage('login-error');
+
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!username || !password) {
+                showMessage('login-error', "Vui lòng nhập đầy đủ thông tin!");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_AUTH}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!res.ok) throw new Error(await res.text());
+
+                const data = await res.json();
+                currentToken = data.token;
+                localStorage.setItem("quiz_token", currentToken);
+                localStorage.setItem("quiz_username", username);
+
+                checkAuth();
+            } catch (err) {
+                showMessage('login-error', err.message.includes("401") 
+                    ? "Sai tên đăng nhập hoặc mật khẩu!"
+                    : "Lỗi kết nối server: " + err.message);
+            }
+        }
+
+        // ── REGISTER ─────────────────────────────────────
+        async function handleRegister() {
+            hideMessage('reg-error');
+            hideMessage('reg-success');
+
+            const fullName = document.getElementById('reg-fullname').value.trim();
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value;
+
+            if (!fullName || !username || !password) {
+                showMessage('reg-error', "Vui lòng điền đầy đủ thông tin!");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_AUTH}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fullName, username, password })
+                });
+
+                if (!res.ok) throw new Error(await res.text());
+
+                showMessage('reg-success', "Đăng ký thành công! Đang chuyển sang đăng nhập...", "success");
+                setTimeout(() => switchView('login'), 1800);
+            } catch (err) {
+                showMessage('reg-error', err.message || "Đăng ký thất bại!");
+            }
+        }
+
+        // ── GENERATE QUIZ ────────────────────────────────
+        async function generateQuiz(isTestMode = false) {
+            if (!currentToken) {
+                alert("Phiên đăng nhập hết hạn!");
+                handleLogout();
+                return;
+            }
+
+            const topic = document.getElementById('topic-select').value;
+            const loading = document.getElementById('loading-msg');
+            const quizContent = document.getElementById('quiz-content');
+
+            quizContent.classList.add('hidden');
+            hideMessage('result-msg');
+            loading.style.display = 'block';
+
+            const endpoint = isTestMode ? "/test-gemini" : "/generate";
+
+            try {
+                const res = await fetch(`${API_QUIZ}${endpoint}?topic=${encodeURIComponent(topic)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!res.ok) {
+                    if (res.status === 401 || res.status === 403) {
+                        alert("Phiên đăng nhập hết hạn!");
+                        handleLogout();
+                    }
+                    throw new Error(await res.text());
+                }
+
+                let data = await res.json();
+
+                // Xử lý trường hợp API trả về string JSON (thường gặp ở test mode)
+                if (typeof data === 'string') {
+                    try { data = JSON.parse(data); } catch {}
+                }
+
+                renderQuestion(data);
+            } catch (err) {
+                alert("Lỗi khi tạo câu hỏi: " + err.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderQuestion(data) {
+            const qText = document.getElementById('q-text');
+            const optionsArea = document.getElementById('options-area');
+            const quizContent = document.getElementById('quiz-content');
+
+            currentCorrectAnswer = data.correctAnswer || "";
+
+            qText.textContent = data.content || data.question || "Không lấy được nội dung câu hỏi";
+
+            let options = [];
+            if (data.optionA) { // từ database
+                options = [
+                    { key: 'A', text: data.optionA },
+                    { key: 'B', text: data.optionB },
+                    { key: 'C', text: data.optionC },
+                    { key: 'D', text: data.optionD }
+                ];
+            } else if (Array.isArray(data.options)) { // từ test gemini
+                options = data.options.map((text, i) => ({
+                    key: String.fromCharCode(65 + i),
+                    text
+                }));
+            }
+
+            optionsArea.innerHTML = '';
+
+            options.forEach(({ key, text }) => {
+                const btn = document.createElement('div');
+                btn.className = 'option-btn';
+                btn.textContent = text.startsWith(key + '.') ? text : `${key}. ${text}`;
+                btn.onclick = () => submitAnswer(key, btn);
+                optionsArea.appendChild(btn);
+            });
+
+            quizContent.classList.remove('hidden');
+        }
+
+        // ── SUBMIT ANSWER ────────────────────────────────
+        async function submitAnswer(userChoice, clickedBtn) {
+            // Visual feedback
+            document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+            clickedBtn.classList.add('selected');
+
+            const resultMsg = document.getElementById('result-msg');
+            resultMsg.className = 'message-box';
+            resultMsg.textContent = "Đang chấm điểm...";
+            resultMsg.style.display = 'block';
+
+            try {
+                const res = await fetch(`${API_QUIZ}/check-answer`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userAnswer: userChoice,
+                        correctAnswer: currentCorrectAnswer
+                    })
+                });
+
+                if (!res.ok) throw new Error();
+
+                const data = await res.json();
+
+                if (data.status === 'CORRECT') {
+                    resultMsg.textContent = `🎉 CHÍNH XÁC! ${data.message || ''}`;
+                    resultMsg.classList.add('success');
+                } else {
+                    resultMsg.textContent = `😢 SAI RỒI! Đáp án đúng là: ${currentCorrectAnswer}`;
+                    resultMsg.classList.add('error');
+                }
+            } catch {
+                resultMsg.textContent = "Lỗi khi chấm điểm. Vui lòng thử lại.";
+                resultMsg.classList.add('error');
+            }
+        }
+
+        // Khởi động
+        checkAuth();
+    </script>
+</body>
+</html>
