@@ -27,4 +27,7 @@ public class Question {
     private String optionD;
 
     private String correctAnswer; // "A", "B", "C" hoặc "D"
+
+    @Column(columnDefinition = "TEXT")
+    private String explanation; // Giải thích đáp án
 }

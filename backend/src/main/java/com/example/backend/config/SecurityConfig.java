@@ -40,7 +40,8 @@ public class SecurityConfig {
                                 "/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html")
+                                "/swagger-ui.html",
+                                "/ws-quiz/**")
                         .permitAll()
 
                         // 2. Các API khác vẫn cần đăng nhập mới gọi được

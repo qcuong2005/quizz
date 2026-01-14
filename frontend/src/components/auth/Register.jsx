@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../../services/authService';
-import '../../styles/TetTheme.css';
+import '../../styles/GlobalStyles.css';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -12,22 +12,8 @@ const Register = () => {
     });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-
-    // Handle flowers generation
-    const [flowers, setFlowers] = useState([]);
-
-    useEffect(() => {
-        // Generate random flowers
-        const newFlowers = Array.from({ length: 20 }).map((_, i) => ({
-            id: i,
-            left: Math.random() * 100 + '%',
-            animationDuration: Math.random() * 5 + 5 + 's',
-            animationDelay: Math.random() * 5 + 's',
-            type: Math.random() > 0.5 ? '🌸' : '🌼'
-        }));
-        setFlowers(newFlowers);
-    }, []);
 
     const handleChange = (e) => {
         setFormData({
@@ -46,52 +32,58 @@ const Register = () => {
             return;
         }
 
+        if (formData.password.length < 6) {
+            setError('Mật khẩu phải có ít nhất 6 ký tự!');
+            return;
+        }
+
+        setIsLoading(true);
+
         try {
             await register(formData.username, formData.password, formData.fullName);
-            setSuccess('Đăng ký thành công! Đang chuyển hướng...');
+            setSuccess('🎉 Đăng ký thành công! Đang chuyển hướng...');
             setTimeout(() => {
                 navigate('/login');
             }, 2000);
         } catch (err) {
             setError(err.message);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
-        <div className="tet-bg">
-            {/* Render Flowers */}
-            {flowers.map((flower) => (
-                <div
-                    key={flower.id}
-                    className="flower"
-                    style={{
-                        left: flower.left,
-                        animationDuration: flower.animationDuration,
-                        animationDelay: flower.animationDelay
-                    }}
-                >
-                    {flower.type}
-                </div>
-            ))}
+        <div className="page-wrapper">
+            {/* Animated Background */}
+            <div className="animated-bg">
+                <div className="orb orb-1"></div>
+                <div className="orb orb-2"></div>
+                <div className="orb orb-3"></div>
+            </div>
 
-            <div className="auth-container">
-                <div className="auth-card">
-                    <div className="lantern left"></div>
-                    <div className="lantern right"></div>
+            {/* Auth Content */}
+            <div className="auth-page">
+                <div className="auth-card glass-card">
+                    {/* Header */}
+                    <div className="auth-header">
+                        <span className="auth-icon">✨</span>
+                        <h1 className="auth-title">Tạo Tài Khoản</h1>
+                        <p className="auth-subtitle">Tham gia cùng hàng ngàn người chơi khác! 🎮</p>
+                    </div>
 
-                    <h1 className="auth-title">Đăng Ký</h1>
-
-                    {error && <div className="error-message">{error}</div>}
+                    {/* Messages */}
+                    {error && <div className="error-message">⚠️ {error}</div>}
                     {success && <div className="success-message">{success}</div>}
 
+                    {/* Form */}
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
-                            <label className="form-label">Họ và tên</label>
+                            <label className="form-label">📝 Họ và tên</label>
                             <input
                                 type="text"
                                 name="fullName"
                                 className="form-input"
-                                placeholder="Nhập họ tên của bạn"
+                                placeholder="Nhập họ tên của bạn..."
                                 value={formData.fullName}
                                 onChange={handleChange}
                                 required
@@ -99,50 +91,66 @@ const Register = () => {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Tên đăng nhập</label>
+                            <label className="form-label">👤 Tên đăng nhập</label>
                             <input
                                 type="text"
                                 name="username"
                                 className="form-input"
-                                placeholder="Chọn tên đăng nhập"
+                                placeholder="Chọn tên đăng nhập..."
                                 value={formData.username}
                                 onChange={handleChange}
                                 required
+                                autoComplete="username"
                             />
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Mật khẩu</label>
+                            <label className="form-label">🔑 Mật khẩu</label>
                             <input
                                 type="password"
                                 name="password"
                                 className="form-input"
-                                placeholder="Nhập mật khẩu"
+                                placeholder="Tạo mật khẩu (ít nhất 6 ký tự)..."
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
+                                autoComplete="new-password"
                             />
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Nhập lại mật khẩu</label>
+                            <label className="form-label">🔒 Xác nhận mật khẩu</label>
                             <input
                                 type="password"
                                 name="confirmPassword"
                                 className="form-input"
-                                placeholder="Xác nhận mật khẩu"
+                                placeholder="Nhập lại mật khẩu..."
                                 value={formData.confirmPassword}
                                 onChange={handleChange}
                                 required
+                                autoComplete="new-password"
                             />
                         </div>
 
-                        <button type="submit" className="btn-tet">
-                            Đăng Ký Ngay
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
+                            style={{ width: '100%', marginTop: '8px' }}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <>
+                                    <span className="loading-spinner" style={{ width: '20px', height: '20px' }}></span>
+                                    Đang xử lý...
+                                </>
+                            ) : (
+                                <>🚀 Đăng Ký Ngay</>
+                            )}
                         </button>
                     </form>
 
-                    <div className="auth-link">
+                    {/* Footer */}
+                    <div className="auth-footer">
                         Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
                     </div>
                 </div>
