@@ -77,8 +77,8 @@ public class QuizRestController {
         System.out.println("Test nhanh AI với chủ đề: " + topic);
         try {
             // Gọi trực tiếp GeminiService (Bỏ qua bước lưu DB)
-            String rawJson = geminiService.generateQuizQuestion(topic);
-            return ResponseEntity.ok(rawJson);
+            Map<String, Object> result = geminiService.generateQuizQuestion(topic);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Lỗi Gemini: " + e.getMessage());
         }

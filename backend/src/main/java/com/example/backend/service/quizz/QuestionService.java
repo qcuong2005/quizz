@@ -20,15 +20,26 @@ public class QuestionService {
         this.questionRepository = questionRepository;
     }
 
-    public Question generateAndSaveQuestion(String topic) {
-        // 1. Gọi AI để lấy chuỗi JSON thô
-        String jsonResult = geminiService.generateQuizQuestion(topic);
+    // Hàm mới: Theo yêu cầu user, LUÔN gọi AI (Groq) để lấy câu hỏi mới, KHÔNG lấy
+    // lại từ DB.
+    public Question getOrGenerateQuestion(String topic) {
+        System.out.println(">>> FORCE AI: Đang gọi Groq AI để tạo câu hỏi mới về: " + topic);
+        return generateAndSaveQuestion(topic);
+    }
 
-        // 2. Parse JSON sang Object Java để lấy dữ liệu
-        Gson gson = new Gson();
+    public Question generateAndSaveQuestion(String topic) {
+        // 1. Gọi AI để lấy Map dữ liệu
+        java.util.Map<String, Object> result = geminiService.generateQuizQuestion(topic);
+
+        if (result.containsKey("error")) {
+            throw new RuntimeException((String) result.get("error"));
+        }
+
         try {
-            // Chuyển chuỗi JSON từ AI thành đối tượng tạm
-            GeminiResponseDto dto = gson.fromJson(jsonResult, GeminiResponseDto.class);
+            // 2. Chuyển Map thành Gson JsonElement rồi qua DTO cho tiện (hoặc get từ Map)
+            Gson gson = new Gson();
+            String jsonStr = gson.toJson(result);
+            GeminiResponseDto dto = gson.fromJson(jsonStr, GeminiResponseDto.class);
 
             // 3. Map dữ liệu sang Entity Question để lưu DB
             Question question = new Question();
@@ -42,6 +53,11 @@ public class QuestionService {
                 question.setOptionB(dto.options.get(1));
                 question.setOptionC(dto.options.get(2));
                 question.setOptionD(dto.options.get(3));
+            }
+
+            // Xử lý explanation
+            if (dto.explanation != null) {
+                question.setExplanation(dto.explanation);
             }
 
             // 4. Lưu xuống Database
@@ -58,5 +74,6 @@ public class QuestionService {
         String question;
         List<String> options;
         String correctAnswer;
+        String explanation;
     }
 }
