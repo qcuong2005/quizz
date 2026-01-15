@@ -1,6 +1,5 @@
 package com.example.backend.controller.quizz;
 
-import com.example.backend.service.geminiService.GeminiService;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -12,9 +11,12 @@ import java.security.Principal; // Import cái này
 public class QuizSocketController {
 
     private final com.example.backend.service.quizz.QuestionService questionService;
+    private final com.example.backend.repository.user.UserRepository userRepository;
 
-    public QuizSocketController(com.example.backend.service.quizz.QuestionService questionService) {
+    public QuizSocketController(com.example.backend.service.quizz.QuestionService questionService,
+            com.example.backend.repository.user.UserRepository userRepository) {
         this.questionService = questionService;
+        this.userRepository = userRepository;
     }
 
     @MessageMapping("/get-question")
@@ -102,6 +104,36 @@ public class QuizSocketController {
             response.put("streak", 0);
             response.put("streakBonus", 0);
         }
+
+        // --- NEW: Save Stats to Database ---
+        try {
+            com.example.backend.entity.user.User user = userRepository.findByUsername(currentUsername).orElse(null);
+            if (user != null) {
+                // Update Total Score from this turn
+                long earnedScore = (response.get("score") instanceof Integer)
+                        ? ((Integer) response.get("score")).longValue()
+                        : 0L;
+                user.setTotalScore(user.getTotalScore() + earnedScore);
+
+                // Update Streak (Max streak logic vs Current streak?)
+                // Assuming "streak" field in DB is Current Streak
+                int currentStreak = userStreaks.getOrDefault(currentUsername, 0);
+                user.setStreak(currentStreak);
+
+                // Update Games Played (increment by 1 for every answer check? Or every session?
+                // Let's count every Question answered as a "play" or "turn". Usually specific
+                // "Games" are sessions.
+                // For now, let's just increment Total Answers = Games Played in this simple
+                // context, or maybe just leave it
+                // Actually, let's just increment it.
+                user.setGamesPlayed(user.getGamesPlayed() + 1);
+
+                userRepository.save(user); // Persist to DB
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi lưu stats: " + e.getMessage());
+        }
+        // -----------------------------------
 
         return response;
     }

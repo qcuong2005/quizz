@@ -27,6 +27,16 @@ public class User {
     @Column(name = "full_name")
     private String fullName;
 
+    // Stats
+    @Column(columnDefinition = "bigint default 0")
+    private long totalScore = 0;
+
+    @Column(columnDefinition = "int default 0")
+    private int streak = 0;
+
+    @Column(columnDefinition = "int default 0")
+    private int gamesPlayed = 0;
+
     // 1. Constructor mặc định (Bắt buộc cho Hibernate)
     public User() {
     }
@@ -79,5 +89,29 @@ public class User {
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+
+    public long getTotalScore() {
+        return totalScore;
+    }
+
+    public void setTotalScore(long totalScore) {
+        this.totalScore = totalScore;
+    }
+
+    public int getStreak() {
+        return streak;
+    }
+
+    public void setStreak(int streak) {
+        this.streak = streak;
+    }
+
+    public int getGamesPlayed() {
+        return gamesPlayed;
+    }
+
+    public void setGamesPlayed(int gamesPlayed) {
+        this.gamesPlayed = gamesPlayed;
     }
 }

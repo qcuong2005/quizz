@@ -4,6 +4,40 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getCurrentUser } from '../../services/authService';
 import '../../styles/GlobalStyles.css';
+import 'katex/dist/katex.min.css';
+import { InlineMath, BlockMath } from 'react-katex';
+
+// Helper to render text with LaTeX
+const RenderWithMath = ({ text }) => {
+    if (!text) return null;
+
+    // Pattern to detect LaTeX: 
+    // 1. Block: $$...$$ or \[...\]
+    // 2. Inline: $...$ or \(...\)
+    const parts = text.split(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|(?<!\\)\$[\s\S]*?(?<!\\)\$)/g);
+
+    return (
+        <span>
+            {parts.map((part, index) => {
+                if (part.startsWith('$$') && part.endsWith('$$')) {
+                    const math = part.slice(2, -2);
+                    return <BlockMath key={index} math={math} />;
+                } else if (part.startsWith('\\[') && part.endsWith('\\]')) {
+                    const math = part.slice(2, -2);
+                    return <BlockMath key={index} math={math} />;
+                } else if (part.startsWith('\\(') && part.endsWith('\\)')) {
+                    const math = part.slice(2, -2);
+                    return <InlineMath key={index} math={math} />;
+                } else if (part.startsWith('$') && part.endsWith('$')) {
+                    const math = part.slice(1, -1);
+                    return <InlineMath key={index} math={math} />;
+                } else {
+                    return <span key={index}>{part}</span>;
+                }
+            })}
+        </span>
+    );
+};
 
 const QuizGame = () => {
     const [searchParams] = useSearchParams();
@@ -17,6 +51,10 @@ const QuizGame = () => {
     const [score, setScore] = useState(0);
     const [timeLeft, setTimeLeft] = useState(15);
 
+    // NEW: Suspense Mode States
+    const [showResult, setShowResult] = useState(false);
+    const [hasSubmitted, setHasSubmitted] = useState(false);
+
     // WebSocket Client Ref
     const stompClientRef = useRef(null);
 
@@ -26,7 +64,6 @@ const QuizGame = () => {
             return;
         }
 
-        // WebSocket Connection
         const storedUser = JSON.parse(localStorage.getItem("user"));
         const token = storedUser ? storedUser.token : null;
 
@@ -60,6 +97,9 @@ const QuizGame = () => {
                         setLoading(false);
                         setTimeLeft(15);
                         setResult(null);
+                        // Reset suspense states
+                        setShowResult(false);
+                        setHasSubmitted(false);
                     } catch (e) {
                         setLoading(false);
                         alert("Lỗi khi xử lý câu hỏi từ AI.");
@@ -71,8 +111,10 @@ const QuizGame = () => {
                     if (resultData.username === user.username) {
                         setResult(resultData);
                         if (resultData.score > 0) {
-                            setScore(prev => prev + 10);
+                            setScore(prev => prev + resultData.score);
                         }
+                        // IMPORTANT: We do NOT set showResult(true) here.
+                        // We wait for the timer or the Skip button.
                     }
                 });
 
@@ -98,7 +140,9 @@ const QuizGame = () => {
 
     // Timer Logic
     useEffect(() => {
-        if (loading || result) return;
+        // If loading or if result is ALREADY shown, stop timer
+        if (loading || showResult) return;
+
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
                 if (prev <= 1) {
@@ -110,7 +154,7 @@ const QuizGame = () => {
             });
         }, 1000);
         return () => clearInterval(timer);
-    }, [loading, result]);
+    }, [loading, showResult]);
 
     // Power-ups State
     const [powerUps, setPowerUps] = useState({
@@ -128,7 +172,7 @@ const QuizGame = () => {
 
     // Power-up Handlers
     const handle5050 = () => {
-        if (powerUps.fiftyFifty <= 0 || used5050 || !question || result) return;
+        if (powerUps.fiftyFifty <= 0 || used5050 || !question || hasSubmitted) return;
         const wrongOptions = question.options.filter(opt => opt !== question.correctAnswer);
         const shuffled = wrongOptions.sort(() => 0.5 - Math.random());
         const toHide = shuffled.slice(0, 2);
@@ -138,19 +182,19 @@ const QuizGame = () => {
     };
 
     const handleDoubleScore = () => {
-        if (powerUps.doubleScore <= 0 || isDoubleScoreActive || result) return;
+        if (powerUps.doubleScore <= 0 || isDoubleScoreActive || hasSubmitted) return;
         setIsDoubleScoreActive(true);
         setPowerUps(prev => ({ ...prev, doubleScore: prev.doubleScore - 1 }));
     };
 
     const handleExtraTime = () => {
-        if (powerUps.extraTime <= 0 || result) return;
+        if (powerUps.extraTime <= 0 || hasSubmitted || showResult) return;
         setTimeLeft(prev => prev + 5);
         setPowerUps(prev => ({ ...prev, extraTime: prev.extraTime - 1 }));
     };
 
     const handleSecondChance = () => {
-        if (powerUps.secondChance <= 0 || isSecondChanceActive || result) return;
+        if (powerUps.secondChance <= 0 || isSecondChanceActive || hasSubmitted) return;
         setIsSecondChanceActive(true);
         setPowerUps(prev => ({ ...prev, secondChance: prev.secondChance - 1 }));
     };
@@ -162,6 +206,8 @@ const QuizGame = () => {
         setIsDoubleScoreActive(false);
         setIsSecondChanceActive(false);
         setHasRetried(false);
+        setHasSubmitted(false);
+        setShowResult(false);
 
         if (client && client.active) {
             client.publish({
@@ -172,7 +218,7 @@ const QuizGame = () => {
     };
 
     const handleAnswer = (selectedAns) => {
-        if (!question || result) return;
+        if (!question || hasSubmitted) return;
 
         const isCorrect = selectedAns === question.correctAnswer;
         if (!isCorrect && isSecondChanceActive && !hasRetried) {
@@ -180,6 +226,8 @@ const QuizGame = () => {
             setHasRetried(true);
             return;
         }
+
+        setHasSubmitted(true); // Lock inputs immediately
 
         const payload = {
             userAnswer: selectedAns,
@@ -202,7 +250,18 @@ const QuizGame = () => {
     };
 
     const handleTimeOut = () => {
-        setResult({ message: "⏰ Hết giờ!", score: 0 });
+        // If user hasn't answered locally, generate a timeout result locally (optional)
+        // But backend usually handles timeout if we send nothing? 
+        // For simplicity, we just show result. If result is null (no answer sent), we might need to handle that.
+        // Assuming backend sends a result or valid state eventually. 
+        if (!result) {
+            setResult({ message: "⏰ Hết giờ!", score: 0 });
+        }
+        setShowResult(true);
+    };
+
+    const handleSkip = () => {
+        setShowResult(true);
     };
 
     // Timer color logic
@@ -221,160 +280,310 @@ const QuizGame = () => {
                 <div className="orb orb-3"></div>
             </div>
 
-            <div className="quiz-page" style={{ position: 'relative', zIndex: 1 }}>
-                <div className="quiz-game-container">
-                    {/* Header: Stats & Timer */}
-                    <div className="quiz-game-header glass-card">
-                        <div className="score-badge">
-                            <span className="icon">🏆</span>
-                            <span>{score}</span>
-                            {result && result.streak > 1 && (
-                                <span className="streak-badge">🔥 {result.streak}</span>
-                            )}
-                        </div>
+            {/* Floating Header */}
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                padding: '20px 40px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                zIndex: 100,
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)',
+                pointerEvents: 'none'
+            }}>
+                {/* Back Button */}
+                <button
+                    onClick={() => navigate('/')}
+                    style={{
+                        background: 'rgba(255,255,255,0.1)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: '12px',
+                        padding: '10px 15px',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        pointerEvents: 'auto',
+                        transition: 'all 0.3s ease',
+                        fontWeight: '600'
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+                    onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                >
+                    <span>🏠</span> Exit
+                </button>
 
-                        <div className="timer-container">
-                            <div className="timer-bar">
-                                <div
-                                    className={`timer-fill ${getTimerClass()}`}
-                                    style={{ width: `${(timeLeft / 15) * 100}%` }}
-                                ></div>
-                            </div>
-                        </div>
-
-                        <div className="time-display">
-                            <span>⏱️</span>
-                            <span>{timeLeft}s</span>
-                        </div>
+                {/* Score & Streak */}
+                <div style={{ display: 'flex', gap: '15px', pointerEvents: 'auto' }}>
+                    <div className="glass-card" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '20px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>🏆</span>
+                        <span style={{ fontWeight: '800', fontSize: '1.1rem' }}>{score}</span>
                     </div>
+                    {score > 0 && result && result.streak > 1 && (
+                        <div className="glass-card" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '20px', background: 'rgba(255, 107, 53, 0.2)', borderColor: '#ff6b35' }}>
+                            <span style={{ fontSize: '1.2rem' }}>🔥</span>
+                            <span style={{ fontWeight: '800', fontSize: '1.1rem', color: '#ff6b35' }}>{result.streak}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="quiz-page" style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', paddingTop: '80px', paddingBottom: '40px' }}>
+
+                {/* Timer Bar */}
+                <div style={{ width: '100%', maxWidth: '800px', marginBottom: '30px', position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                        <span>Time Left</span>
+                        <span style={{ color: timeLeft <= 5 ? '#ff4b2b' : 'white' }}>{timeLeft}s</span>
+                    </div>
+
+                    {/* SKIP BUTTON */}
+                    {hasSubmitted && !showResult && (
+                        <button
+                            onClick={handleSkip}
+                            className="btn-primary"
+                            style={{
+                                position: 'absolute',
+                                top: '-5px',
+                                right: '0',
+                                transform: 'translateY(-100%)',
+                                padding: '6px 16px',
+                                fontSize: '0.9rem',
+                                borderRadius: '20px',
+                                cursor: 'pointer',
+                                zIndex: 200,
+                                background: 'var(--accent-cyan)',
+                                border: 'none',
+                                color: '#000',
+                                fontWeight: 'bold',
+                                animation: 'pulse 1.5s infinite',
+                                boxShadow: '0 0 15px rgba(0, 212, 255, 0.5)'
+                            }}
+                        >
+                            ⏩ SKIP
+                        </button>
+                    )}
+
+                    <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div
+                            style={{
+                                height: '100%',
+                                width: `${(timeLeft / 15) * 100}%`,
+                                background: timeLeft <= 5 ? 'var(--btn-red)' : timeLeft <= 10 ? 'var(--btn-yellow)' : 'var(--btn-green)',
+                                transition: 'width 1s linear, background 0.3s ease'
+                            }}
+                        ></div>
+                    </div>
+                </div>
+
+                <div className="quiz-game-container" style={{ width: '100%', maxWidth: '900px', padding: '0 20px' }}>
 
                     {/* Main Game Area */}
                     {loading ? (
-                        <div className="question-card glass-card">
-                            <div className="loading-state">
-                                <div className="loading-spinner"></div>
-                                <p>Đang tải câu hỏi... 🚀</p>
-                            </div>
+                        <div className="glass-card" style={{ padding: '60px', textAlign: 'center', animation: 'pulse 1.5s infinite' }}>
+                            <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
+                            <h2 style={{ color: 'var(--text-secondary)' }}>Generating Question... 🤖</h2>
                         </div>
                     ) : question ? (
                         <>
-                            <div className="question-card glass-card">
-                                {question.question}
+                            {/* Question Card */}
+                            <div className="glass-card" style={{
+                                padding: '40px',
+                                textAlign: 'center',
+                                marginBottom: '40px',
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                animation: 'slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                            }}>
+                                <h2 style={{ fontSize: '1.8rem', lineHeight: '1.4', fontWeight: '600', color: 'white' }}>
+                                    <RenderWithMath text={question.question} />
+                                </h2>
                             </div>
 
-                            <div className="answers-grid">
+                            {/* Options Grid */}
+                            <div className="answers-grid" style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                gap: '20px',
+                                perspective: '1000px'
+                            }}>
                                 {question.options.map((opt, idx) => {
                                     if (hiddenOptions.includes(opt)) {
-                                        return <button key={idx} className="answer-btn hidden" disabled></button>;
+                                        return <div key={idx} style={{ opacity: 0 }}></div>;
                                     }
 
+                                    let btnStyle = {
+                                        padding: '25px',
+                                        fontSize: '1.1rem',
+                                        borderRadius: '16px',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        textAlign: 'center',
+                                        minHeight: '80px',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    };
+
                                     let specialClass = '';
-                                    if (result) {
-                                        if (opt === question.correctAnswer) specialClass = 'correct';
-                                        else if (opt === result.userAnswer) specialClass = 'wrong';
+                                    if (showResult && result) {
+                                        if (opt === question.correctAnswer) {
+                                            btnStyle.background = 'rgba(0, 255, 136, 0.2)';
+                                            btnStyle.borderColor = '#00ff88';
+                                            btnStyle.boxShadow = '0 0 20px rgba(0, 255, 136, 0.4)';
+                                            btnStyle.transform = 'scale(1.02)';
+                                        } else if (opt === result.userAnswer) {
+                                            btnStyle.background = 'rgba(255, 65, 108, 0.2)';
+                                            btnStyle.borderColor = '#ff416c';
+                                            btnStyle.opacity = '0.8';
+                                        } else {
+                                            btnStyle.opacity = '0.5';
+                                        }
+                                    } else {
+                                        if (hasSubmitted) {
+                                            // Actively dim if waiting
+                                            btnStyle.opacity = '0.6';
+                                            btnStyle.cursor = 'wait';
+                                            btnStyle.borderColor = 'rgba(255,255,255,0.05)';
+                                        } else {
+                                            specialClass = 'answer-option';
+                                        }
                                     }
 
                                     return (
                                         <button
                                             key={idx}
-                                            className={`answer-btn ${specialClass}`}
+                                            className={`glass-card ${specialClass}`}
+                                            style={btnStyle}
                                             onClick={() => handleAnswer(opt)}
-                                            disabled={!!result}
+                                            disabled={hasSubmitted}
                                         >
-                                            {opt}
+                                            <RenderWithMath text={opt} />
                                         </button>
                                     );
                                 })}
                             </div>
+
+                            {/* Power-ups Dock */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                gap: '15px',
+                                marginTop: '40px',
+                                opacity: (hasSubmitted || showResult) ? 0.3 : 1,
+                                transition: 'opacity 0.3s',
+                                pointerEvents: (hasSubmitted || showResult) ? 'none' : 'auto'
+                            }}>
+                                <button className={`btn-icon glass-card ${used5050 ? 'disabled' : ''}`} onClick={handle5050} disabled={used5050 || hasSubmitted || powerUps.fiftyFifty === 0} title="50/50" style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '1.5rem', opacity: powerUps.fiftyFifty === 0 ? 0.3 : 1 }}>
+                                    ⚖️ <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--accent-purple)', fontSize: '0.7rem', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{powerUps.fiftyFifty}</span>
+                                </button>
+                                <button className={`btn-icon glass-card ${isDoubleScoreActive ? 'active-powerup' : ''}`} onClick={handleDoubleScore} disabled={isDoubleScoreActive || hasSubmitted || powerUps.doubleScore === 0} title="x2 Score" style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '1.5rem', opacity: powerUps.doubleScore === 0 ? 0.3 : 1, border: isDoubleScoreActive ? '2px solid #ffd700' : 'none' }}>
+                                    ✖️2 <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--accent-purple)', fontSize: '0.7rem', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{powerUps.doubleScore}</span>
+                                </button>
+                                <button className="btn-icon glass-card" onClick={handleExtraTime} disabled={hasSubmitted || powerUps.extraTime === 0} title="+5s Time" style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '1.5rem', opacity: powerUps.extraTime === 0 ? 0.3 : 1 }}>
+                                    ⏳ <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--accent-purple)', fontSize: '0.7rem', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{powerUps.extraTime}</span>
+                                </button>
+                                <button className={`btn-icon glass-card ${isSecondChanceActive ? 'active-powerup' : ''}`} onClick={handleSecondChance} disabled={isSecondChanceActive || hasSubmitted || powerUps.secondChance === 0} title="Second Chance" style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '1.5rem', opacity: powerUps.secondChance === 0 ? 0.3 : 1, border: isSecondChanceActive ? '2px solid #00ff88' : 'none' }}>
+                                    🛡️ <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--accent-purple)', fontSize: '0.7rem', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{powerUps.secondChance}</span>
+                                </button>
+                            </div>
                         </>
                     ) : (
-                        <div className="question-card glass-card" style={{ color: '#ff6b8a' }}>
-                            ⚠️ Lỗi kết nối! Vui lòng thử lại.
+                        <div className="glass-card" style={{ padding: '40px', textAlign: 'center', color: '#ff6b8a' }}>
+                            ⚠️ Connection Lost. Please try again.
                         </div>
                     )}
 
-                    {/* Power-ups Dock */}
-                    <div className="powerups-dock">
-                        <button
-                            className={`powerup-btn ${used5050 ? '' : ''}`}
-                            onClick={handle5050}
-                            disabled={used5050 || result || powerUps.fiftyFifty === 0}
-                        >
-                            <span>⚖️</span>
-                            <span className="powerup-count">{powerUps.fiftyFifty}</span>
-                        </button>
-                        <button
-                            className={`powerup-btn ${isDoubleScoreActive ? 'active' : ''}`}
-                            onClick={handleDoubleScore}
-                            disabled={isDoubleScoreActive || result || powerUps.doubleScore === 0}
-                        >
-                            <span>✖️2</span>
-                            <span className="powerup-count">{powerUps.doubleScore}</span>
-                        </button>
-                        <button
-                            className="powerup-btn"
-                            onClick={handleExtraTime}
-                            disabled={result || powerUps.extraTime === 0}
-                        >
-                            <span>⏳</span>
-                            <span className="powerup-count">{powerUps.extraTime}</span>
-                        </button>
-                        <button
-                            className={`powerup-btn ${isSecondChanceActive ? 'active' : ''}`}
-                            onClick={handleSecondChance}
-                            disabled={isSecondChanceActive || result || powerUps.secondChance === 0}
-                        >
-                            <span>🛡️</span>
-                            <span className="powerup-count">{powerUps.secondChance}</span>
-                        </button>
-                    </div>
-
-                    {/* Result Section */}
-                    {result && (
-                        <div className="result-section">
-                            <h2 className={`result-message ${result.score > 0 ? 'correct' : 'wrong'}`}>
+                    {/* Result Overlay */}
+                    {showResult && result && (
+                        <div style={{
+                            position: 'fixed',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            background: 'rgba(10, 10, 26, 0.95)',
+                            backdropFilter: 'blur(30px)',
+                            padding: '30px',
+                            borderTop: `4px solid ${result.score > 0 ? '#00ff88' : '#ff416c'}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 1000,
+                            animation: 'slideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                        }}>
+                            <h2 style={{
+                                fontSize: '2rem',
+                                color: result.score > 0 ? '#00ff88' : '#ff416c',
+                                marginBottom: '10px'
+                            }}>
                                 {result.message}
                             </h2>
                             {result.streakBonus > 0 && (
-                                <p className="streak-bonus">🔥 Bonus streak: +{result.streakBonus}</p>
+                                <p style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '20px' }}>
+                                    🔥 Streak Bonus: +{result.streakBonus}
+                                </p>
                             )}
 
                             {/* Explanation Section */}
                             {question && question.explanation && (
                                 <div style={{
-                                    marginTop: '20px',
+                                    width: '100%',
+                                    maxWidth: '800px',
+                                    marginBottom: '20px',
                                     padding: '20px',
-                                    background: 'rgba(0, 212, 255, 0.1)',
-                                    border: '1px solid rgba(0, 212, 255, 0.3)',
+                                    background: 'rgba(255, 255, 255, 0.05)',
                                     borderRadius: '12px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
                                     textAlign: 'left'
                                 }}>
-                                    <h4 style={{
-                                        color: 'var(--accent-cyan)',
-                                        marginBottom: '10px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px'
-                                    }}>
-                                        💡 Giải thích
+                                    <h4 style={{ color: 'var(--accent-cyan)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        💡 Explanation
                                     </h4>
-                                    <p style={{
-                                        color: 'var(--text-secondary)',
-                                        lineHeight: '1.6',
-                                        fontSize: '0.95rem'
-                                    }}>
-                                        {question.explanation}
+                                    <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                                        <RenderWithMath text={question.explanation} />
                                     </p>
                                 </div>
                             )}
 
-                            <button className="btn btn-primary next-btn" onClick={handleNextQuestion} style={{ marginTop: '20px' }}>
-                                Câu tiếp theo ➡️
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleNextQuestion}
+                                style={{
+                                    padding: '15px 40px',
+                                    fontSize: '1.2rem',
+                                    borderRadius: '50px',
+                                    boxShadow: '0 0 20px rgba(0, 212, 255, 0.4)',
+                                    animation: 'pulse 2s infinite'
+                                }}
+                            >
+                                Next Question ➡️
                             </button>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* Quick CSS for hover effects that inline styles miss */}
+            <style>{`
+                .answer-option:hover {
+                    background: rgba(255,255,255,0.1) !important;
+                    transform: translateY(-2px);
+                    border-color: rgba(255,255,255,0.3) !important;
+                }
+                .active-powerup {
+                    animation: glow 1.5s infinite alternate;
+                }
+            `}</style>
         </div>
     );
 };

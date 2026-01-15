@@ -36,13 +36,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // 1. Cho phép truy cập Login, Register VÀ Trang giao diện Swagger
-                        .requestMatchers(
-                                "/auth/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/ws-quiz/**")
-                        .permitAll()
+                        .requestMatchers("/auth/**").permitAll() // Cho phép truy cập API auth
+                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/swagger-ui.html").permitAll()
+                        .requestMatchers("/ws-quiz/**").permitAll() // Cho phép truy cập WebSocket
+                        .requestMatchers("/api/rankings/**").permitAll() // ✅ Cho phép xem BXH công khai
 
                         // 2. Các API khác vẫn cần đăng nhập mới gọi được
                         .anyRequest().authenticated())
