@@ -21,19 +21,21 @@ public class GeminiService {
 
         static {
                 // --- SỬ ---
+                // --- SỬ ---
                 SUB_TOPICS.put("Sử", Arrays.asList(
-                                "Lịch sử Việt Nam: Các triều đại phong kiến (Đinh, Lý, Trần, Lê...)",
-                                "Lịch sử Việt Nam: Thời kỳ kháng chiến chống Pháp/Mỹ",
-                                "Lịch sử Thế giới: Cổ đại (Hy Lạp, La Mã, Ai Cập)",
-                                "Lịch sử Thế giới: Chiến tranh thế giới thứ 1 và 2",
-                                "Danh nhân lịch sử nổi tiếng thế giới"));
+                                "Lịch sử thế giới – Các thời đại lớn (Tiền sử, Cổ đại, Trung Cổ, Cận đại, Hiện đại)",
+                                "Lịch sử Việt Nam (Dựng nước, Phong kiến, Kháng chiến, Cách mạng)",
+                                "Nhân vật lịch sử nổi tiếng (Lãnh đạo thế giới, Nhân vật VN)",
+                                "Chiến tranh và hòa bình (Thế chiến, CT Việt Nam, Hiệp ước)",
+                                "Sự kiện & ngày kỷ niệm lịch sử (Quốc khánh, Cột mốc lớn)"));
 
                 // --- ĐỊA ---
                 SUB_TOPICS.put("Địa", Arrays.asList(
-                                "Địa lý Việt Nam: Các vùng kinh tế, đặc sản, khí hậu",
-                                "Địa lý Thế giới: Thủ đô các nước, Quốc kỳ",
-                                "Địa lý tự nhiên: Núi, Sông, Biển, Đại dương lớn nhất thế giới",
-                                "Văn hóa và Du lịch các nước"));
+                                "Địa lý tự nhiên (Đại dương, núi, sông)",
+                                "Chính trị quốc gia (Thủ đô, đất nước)",
+                                "Vị trí & bản đồ (Châu lục, múi giờ)",
+                                "Dân cư & kinh tế (Dân số, thành phố)",
+                                "Địa lý Việt Nam (Vị trí, vùng miền, kinh tế)"));
 
                 // --- TOÁN ---
                 SUB_TOPICS.put("Toán", Arrays.asList(
@@ -41,6 +43,14 @@ public class GeminiService {
                                 "Hình học: Tính chất hình học, không gian (tư duy)",
                                 "Đại số: Bài toán đố mẹo, tính nhẩm nhanh",
                                 "Xác suất thống kê thực tế"));
+
+                // --- VẬT LÝ ---
+                SUB_TOPICS.put("Vật Lý", Arrays.asList(
+                                "Level 1 – Cơ bản (Đại lượng & đơn vị, Định luật đơn giản)",
+                                "Level 2 – Cơ học + Năng lượng (Công năng, Động lực học)",
+                                "Level 3 – Điện & Từ (Dòng điện, Từ trường)",
+                                "Level 4 – Sóng & Quang học",
+                                "Level 5 – Vật lý nguyên tử & hiện đại"));
 
                 // --- VĂN ---
                 SUB_TOPICS.put("Văn", Arrays.asList(
@@ -51,15 +61,17 @@ public class GeminiService {
 
                 // --- TIẾNG ANH ---
                 SUB_TOPICS.put("Tiếng Anh", Arrays.asList(
-                                "Grammar (Ngữ pháp): Tenses, Passive Voice, Conditional...",
-                                "Vocabulary (Từ vựng): Chủ đề Business, Travel, Education (C1/C2)",
-                                "Idioms & Phrasal Verbs (Thành ngữ khó)",
-                                "Tìm lỗi sai trong câu"));
+                                "Ngữ âm",
+                                "Ngữ pháp – Từ vựng",
+                                "Giao tiếp",
+                                "Lỗi sai",
+                                "Điền từ",
+                                "Đọc hiểu",
+                                "Biến đổi / hoàn thành câu"));
 
-                // --- ĐỐ VUI / MẸO ---
-                SUB_TOPICS.put("Đố vui",
-                                Arrays.asList("Đố mẹo hại não", "Đố chữ (Chơi chữ)", "Đố tư duy Lateral Thinking"));
-                SUB_TOPICS.put("Đố mẹo", Arrays.asList("Đố mẹo hài hước", "Đố tình huống thám tử"));
+                // --- ĐỐ MẸO / DÂN GIAN ---
+                SUB_TOPICS.put("Đố mẹo",
+                                Arrays.asList("Câu đố mẹo tư duy", "Câu đố logic vui", "Đố dân gian Việt Nam"));
         }
 
         // 4. DANH SÁCH CÂU HỎI DỰ PHÒNG (FALLBACK) KHI AI BỊ LỖI / QUÁ GIỚI HẠN
@@ -97,9 +109,12 @@ public class GeminiService {
                 FALLBACK_QUESTIONS.put("Default", def);
         }
 
+        @org.springframework.beans.factory.annotation.Value("${groq.api.key}")
+        private String apiKey;
+
         public Map<String, Object> generateQuizQuestion(String mainTopic) {
                 String groqUrl = "https://api.groq.com/openai/v1/chat/completions";
-                String apiKey = System.getenv("GROQ_API_KEY"); // Get from environment variable
+                // apiKey is injected
 
                 RestTemplate restTemplate = new RestTemplate();
 
@@ -137,6 +152,8 @@ public class GeminiService {
                                 "📝 YÊU CẦU:\n" +
                                 languageInstruction +
                                 "- Nội dung: Câu hỏi phải thú vị, hấp dẫn, mang tính giáo dục cao.\n" +
+                                "- ĐỊNH DẠNG TOÁN HỌC (QUAN TRỌNG): Tất cả các công thức toán học, số mũ, phân số... BẮT BUỘC phải viết dưới dạng LaTeX, được bao quanh bởi dấu $. Ví dụ: $x^2 + 2x + 1 = 0$ hoặc $\\frac{a}{b}$. Không dùng plain text cho công thức.\n"
+                                +
                                 "- Đáp án nhiễu: 3 đáp án sai phải hợp lý, dễ gây nhầm lẫn nhưng không quá vô lý.\n" +
                                 "- Giải thích: Cung cấp giải thích ngắn gọn (2-3 câu) bằng ngôn ngữ tương ứng, giúp người chơi hiểu tại sao đáp án đúng.\n"
                                 +

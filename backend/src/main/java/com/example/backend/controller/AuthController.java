@@ -4,7 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder; // Cần import cái này
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.backend.entity.user.User;
@@ -16,13 +16,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
-@CrossOrigin("*") // Cho phép Frontend/Swagger gọi thoải mái
+@CrossOrigin("*")
 public class AuthController {
 
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
-    private final PasswordEncoder passwordEncoder; // Inject thêm PasswordEncoder
+    private final PasswordEncoder passwordEncoder;
 
     public AuthController(UserRepository userRepository, JwtUtils jwtUtils,
             AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder) {
@@ -66,9 +66,32 @@ public class AuthController {
             if (authentication.isAuthenticated()) {
                 String token = jwtUtils.generateToken(req.getUsername());
                 // Trả về JSON để Frontend dễ lấy
-                Map<String, String> response = new HashMap<>();
+                Map<String, Object> response = new HashMap<>(); // Change String to Object to handle numbers
                 response.put("token", token);
                 response.put("username", req.getUsername());
+
+                // Fetch full user to get stats
+                User user = userRepository.findByUsername(req.getUsername()).orElse(null);
+                if (user != null) {
+                    response.put("totalScore", user.getTotalScore());
+                    response.put("streak", user.getStreak());
+                    response.put("gamesPlayed", user.getGamesPlayed());
+                    // Calculate mock rank based on score or just a simple logic
+                    long score = user.getTotalScore();
+                    String rank = "Học viên";
+                    if (score > 5000)
+                        rank = "Bậc thầy";
+                    else if (score > 2000)
+                        rank = "Chuyên gia";
+                    else if (score > 500)
+                        rank = "Ưu tú";
+                    response.put("rankName", rank);
+
+                    // Calculate Real Rank (Position in Leaderboard)
+                    long rankPosition = userRepository.countByTotalScoreGreaterThan(user.getTotalScore()) + 1;
+                    response.put("rank", rankPosition);
+                }
+
                 return ResponseEntity.ok(response);
             }
         } catch (Exception e) {
