@@ -27,7 +27,7 @@ public class RoomService {
         }
 
         Room newRoom = new Room(roomId, roomName, capacity, hostUsername);
-        
+
         // LƯU XUỐNG DB
         return roomRepository.save(newRoom);
     }
@@ -43,10 +43,10 @@ public class RoomService {
             if (room.getPlayers().size() >= room.getCapacity()) {
                 throw new RuntimeException("Phòng đã đầy (" + room.getCapacity() + " người)!");
             }
-            
+
             // Thêm người chơi
             room.addPlayer(username);
-            
+
             // LƯU CẬP NHẬT XUỐNG DB
             return roomRepository.save(room);
         }
@@ -57,4 +57,4 @@ public class RoomService {
     private String generateRoomId() {
         return String.valueOf(1000 + random.nextInt(9000));
     }
-}
+}   
