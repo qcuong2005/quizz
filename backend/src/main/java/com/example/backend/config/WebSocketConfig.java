@@ -1,7 +1,5 @@
 package com.example.backend.config;
 
-import com.example.backend.security.JwtUtils;
-import com.example.backend.security.UserInfoService;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -18,6 +16,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+
+import com.example.backend.security.JwtUtils;
+import com.example.backend.security.UserInfoService;
 
 @Configuration
 @EnableWebSocketMessageBroker
