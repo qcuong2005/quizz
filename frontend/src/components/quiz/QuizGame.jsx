@@ -660,13 +660,15 @@ const QuizGame = () => {
                 </div>
             </div>
 
-            .answer-option:hover {
-                background: rgba(255,255,255,0.1) !important;
-            transform: translateY(-2px);
-            border-color: rgba(255,255,255,0.3) !important;
+            {/* Quick CSS for hover effects that inline styles miss */}
+            <style>{`
+                .answer-option:hover {
+                    background: rgba(255,255,255,0.1) !important;
+                    transform: translateY(-2px);
+                    border-color: rgba(255,255,255,0.3) !important;
                 }
-            .active-powerup {
-                animation: glow 1.5s infinite alternate;
+                .active-powerup {
+                    animation: glow 1.5s infinite alternate;
                 }
             `}</style>
         </div >
