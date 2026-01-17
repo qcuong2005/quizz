@@ -1,0 +1,341 @@
+/* ============================================
+   ROOM WAITING - Dark Neon Premium Theme
+   ============================================ */
+
+.room-waiting {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+    position: relative;
+}
+
+.waiting-container {
+    max-width: 800px;
+    width: 100%;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-2xl);
+    box-shadow: var(--glass-shadow);
+    animation: scaleIn 0.4s ease-out;
+}
+
+/* ============================================
+   ROOM HEADER
+   ============================================ */
+.room-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.room-name {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin-bottom: var(--spacing-lg);
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.room-id-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.room-id-label {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.room-id-box {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.05);
+    padding: var(--spacing-md) var(--spacing-xl);
+    border-radius: var(--radius-lg);
+    border: 2px dashed var(--accent-cyan);
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.room-id-box:hover {
+    background: rgba(0, 212, 255, 0.1);
+    transform: scale(1.02);
+    box-shadow: var(--glow-cyan);
+}
+
+.room-id-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    letter-spacing: 8px;
+    font-family: 'Courier New', monospace;
+    text-shadow: var(--glow-cyan);
+}
+
+.copy-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.copy-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+}
+
+/* ============================================
+   PLAYERS SECTION
+   ============================================ */
+.players-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.players-title {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-lg);
+}
+
+.players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.player-card {
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    box-shadow: 0 4px 20px rgba(123, 45, 255, 0.3);
+    transition: var(--transition-normal);
+    animation: slideUp 0.3s ease-out;
+}
+
+.player-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(123, 45, 255, 0.5);
+}
+
+.player-card.empty {
+    background: var(--glass-bg);
+    border: 2px dashed var(--glass-border);
+    opacity: 0.6;
+    box-shadow: none;
+}
+
+.player-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.empty-avatar {
+    background: var(--glass-bg);
+    color: var(--text-muted);
+    border-color: var(--glass-border);
+}
+
+.player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.player-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+}
+
+.player-card.empty .player-name {
+    color: var(--text-muted);
+}
+
+.host-badge {
+    font-size: 0.8rem;
+    color: var(--accent-yellow);
+    font-weight: 600;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+/* ============================================
+   WAITING ACTIONS
+   ============================================ */
+.waiting-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.start-btn {
+    padding: var(--spacing-lg);
+    font-size: 1.3rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-green), #00c9a7);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: var(--transition-normal);
+    box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+}
+
+.start-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0, 255, 136, 0.5);
+}
+
+.start-btn:disabled {
+    background: var(--glass-bg);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    box-shadow: none;
+    border: 1px solid var(--glass-border);
+}
+
+.waiting-message {
+    padding: var(--spacing-lg);
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--accent-yellow);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.leave-btn {
+    padding: var(--spacing-md);
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: var(--glass-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.leave-btn:hover {
+    background: rgba(255, 65, 108, 0.1);
+    border-color: #ff416c;
+    color: #ff6b8a;
+}
+
+/* ============================================
+   TOPIC SELECTION
+   ============================================ */
+.topic-selection-section {
+    margin-bottom: var(--spacing-2xl);
+    padding: var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--glass-border);
+}
+
+.section-title {
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-lg);
+}
+
+.topics-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    justify-content: center;
+}
+
+.topic-chip {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.topic-chip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.topic-chip.selected {
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 4px 15px rgba(123, 45, 255, 0.3);
+    font-weight: 600;
+}
+
+.topic-warning {
+    text-align: center;
+    color: var(--accent-orange);
+    margin-top: var(--spacing-md);
+    font-weight: 500;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+    .waiting-container {
+        padding: var(--spacing-xl);
+    }
+
+    .room-name {
+        font-size: 1.6rem;
+    }
+
+    .room-id-value {
+        font-size: 1.5rem;
+        letter-spacing: 5px;
+    }
+
+    .players-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .start-btn {
+        font-size: 1.1rem;
+        padding: var(--spacing-md);
+    }
+}

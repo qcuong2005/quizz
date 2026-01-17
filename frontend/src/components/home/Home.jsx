@@ -126,6 +126,9 @@ const Home = () => {
                                 <button className="btn btn-primary" onClick={() => document.getElementById('topics-grid')?.scrollIntoView({ behavior: 'smooth' })}>
                                     Chơi ngay <Flame size={20} />
                                 </button>
+                                <button className="btn btn-secondary" onClick={() => navigate('/room')}>
+                                    🎮 Multiplayer
+                                </button>
                                 <button className="btn btn-ghost" onClick={() => navigate('/leaderboard')}>
                                     Bảng xếp hạng <Trophy size={18} />
                                 </button>

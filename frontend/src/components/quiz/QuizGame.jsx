@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getCurrentUser } from '../../services/authService';
@@ -41,9 +41,23 @@ const RenderWithMath = ({ text }) => {
 
 const QuizGame = () => {
     const [searchParams] = useSearchParams();
-    const topic = searchParams.get('topic');
     const navigate = useNavigate();
+    const location = useLocation(); // Get state passed from RoomWaiting
     const user = getCurrentUser();
+
+    // Game Mode State
+    // Try to get from State first, then URL (for refresh resilience)
+    const { roomId: stateRoomId, isMultiplayer: stateIsMp, isHost: stateIsHost, topic: stateTopic } = location.state || {};
+
+    // URL params
+    const roomParam = searchParams.get('room');
+    const hostParam = searchParams.get('host');
+    const topicParam = searchParams.get('topic');
+
+    const roomId = stateRoomId || roomParam;
+    const isMultiplayer = stateIsMp || !!roomParam;
+    const isHost = stateIsHost !== undefined ? stateIsHost : (hostParam === 'true');
+    const topic = stateTopic || topicParam;
 
     const [question, setQuestion] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -80,48 +94,80 @@ const QuizGame = () => {
                 Authorization: `Bearer ${token}`
             },
             onConnect: () => {
-                stompClient.subscribe('/topic/quiz', (message) => {
-                    try {
-                        const receivedQuestion = JSON.parse(message.body);
-                        if (receivedQuestion.error) {
-                            setLoading(false);
-                            alert("AI Error: " + receivedQuestion.error);
-                            return;
-                        }
-                        if (!receivedQuestion.options || !Array.isArray(receivedQuestion.options)) {
-                            setLoading(false);
-                            alert("Lỗi: Dữ liệu câu hỏi không hợp lệ.");
-                            return;
-                        }
-                        setQuestion(receivedQuestion);
-                        setLoading(false);
-                        setTimeLeft(15);
-                        setResult(null);
-                        // Reset suspense states
-                        setShowResult(false);
-                        setHasSubmitted(false);
-                    } catch (e) {
-                        setLoading(false);
-                        alert("Lỗi khi xử lý câu hỏi từ AI.");
-                    }
-                });
+                if (isMultiplayer) {
+                    // --- MULTIPLAYER MODE ---
+                    console.log(`Connected to Multiplayer Room: ${roomId}`);
 
-                stompClient.subscribe('/topic/score', (message) => {
-                    const resultData = JSON.parse(message.body);
-                    if (resultData.username === user.username) {
-                        setResult(resultData);
-                        if (resultData.score > 0) {
-                            setScore(prev => prev + resultData.score);
-                        }
-                        // IMPORTANT: We do NOT set showResult(true) here.
-                        // We wait for the timer or the Skip button.
-                    }
-                });
+                    // Subscribe to Room Game Events
+                    stompClient.subscribe(`/topic/room/${roomId}/game`, (message) => {
+                        const data = JSON.parse(message.body);
 
-                requestQuestion(stompClient, topic);
+                        if (data.type === 'NEW_QUESTION') {
+                            setQuestion(data);
+                            setLoading(false);
+                            setTimeLeft(15);
+                            setResult(null);
+                            setShowResult(false);
+                            setHasSubmitted(false);
+                        } else if (data.type === 'PLAYER_ANSWERED') {
+                            if (data.username === user.username) {
+                                // My result
+                                setResult({
+                                    message: data.isCorrect ? `Chính xác! +${data.scoreAdded}` : "Sai rồi!",
+                                    score: data.scoreAdded,
+                                    isCorrect: data.isCorrect,
+                                    correctAnswer: data.correctAnswer
+                                });
+                                if (data.scoreAdded > 0) setScore(prev => prev + data.scoreAdded);
+                            }
+                            // Update leaderboard? (Future)
+                        }
+                    });
+
+                    // Multiplayer: Wait for host/server to send first question
+                    // If Host, maybe trigger start if not started? 
+                    // Actually, RoomWaiting triggered Start, causing Backend to wait 2s then send Question.
+                    // So just wait here.
+                    setLoading(true);
+
+                } else {
+                    // --- SINGLE PLAYER MODE ---
+                    stompClient.subscribe('/topic/quiz', (message) => {
+                        try {
+                            const receivedQuestion = JSON.parse(message.body);
+                            if (receivedQuestion.error) {
+                                setLoading(false);
+                                alert("AI Error: " + receivedQuestion.error);
+                                return;
+                            }
+                            setQuestion(receivedQuestion);
+                            setLoading(false);
+                            setTimeLeft(15);
+                            setResult(null);
+                            setShowResult(false);
+                            setHasSubmitted(false);
+                        } catch (e) {
+                            setLoading(false);
+                            alert("Lỗi khi xử lý câu hỏi từ AI.");
+                        }
+                    });
+
+                    stompClient.subscribe('/topic/score', (message) => {
+                        const resultData = JSON.parse(message.body);
+                        if (resultData.username === user.username) {
+                            setResult(resultData);
+                            if (resultData.score > 0) {
+                                setScore(prev => prev + resultData.score);
+                            }
+                        }
+                    });
+
+                    // Start Game immediately
+                    requestQuestion(stompClient, topic);
+                }
             },
             onStompError: (frame) => {
-                if (frame.headers['message'].includes("chưa đăng nhập")) {
+                if (frame.headers['message']?.includes("chưa đăng nhập")) {
                     navigate('/login');
                 }
             },
@@ -136,7 +182,7 @@ const QuizGame = () => {
             }
         };
         // eslint-disable-next-line
-    }, [topic, navigate]);
+    }, [topic, navigate, isMultiplayer, roomId]);
 
     // Timer Logic
     useEffect(() => {
@@ -221,7 +267,11 @@ const QuizGame = () => {
         if (!question || hasSubmitted) return;
 
         const isCorrect = selectedAns === question.correctAnswer;
-        if (!isCorrect && isSecondChanceActive && !hasRetried) {
+        if (!isCorrect && isSecondChanceActive && !hasRetried && !isMultiplayer) {
+            // Second chance only available in Single Player for now? Or sync it?
+            // Let's allow it locally but backend might not know. 
+            // For multiplayer simplicity, let's keep powerups local or disable them.
+            // Let's assume they work locally for now.
             alert("🛡️ Second Chance! Bạn được chọn lại một lần nữa.");
             setHasRetried(true);
             return;
@@ -238,15 +288,35 @@ const QuizGame = () => {
         };
 
         if (stompClientRef.current) {
-            stompClientRef.current.publish({
-                destination: '/app/check-answer',
-                body: JSON.stringify(payload)
-            });
+            if (isMultiplayer) {
+                stompClientRef.current.publish({
+                    destination: `/app/room/${roomId}/submit`,
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                stompClientRef.current.publish({
+                    destination: '/app/check-answer',
+                    body: JSON.stringify(payload)
+                });
+            }
         }
     };
 
     const handleNextQuestion = () => {
-        requestQuestion(stompClientRef.current, topic);
+        if (isMultiplayer) {
+            if (isHost && stompClientRef.current) {
+                // Host triggers next question
+                stompClientRef.current.publish({
+                    destination: `/app/room/${roomId}/next-question`,
+                    body: topic
+                });
+            } else {
+                // Guest waits
+                alert("Chờ chủ phòng chuyển câu tiếp theo...");
+            }
+        } else {
+            requestQuestion(stompClientRef.current, topic);
+        }
     };
 
     const handleTimeOut = () => {
@@ -555,19 +625,36 @@ const QuizGame = () => {
                                 </div>
                             )}
 
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleNextQuestion}
-                                style={{
-                                    padding: '15px 40px',
-                                    fontSize: '1.2rem',
-                                    borderRadius: '50px',
-                                    boxShadow: '0 0 20px rgba(0, 212, 255, 0.4)',
-                                    animation: 'pulse 2s infinite'
-                                }}
-                            >
-                                Next Question ➡️
-                            </button>
+                            {(!isMultiplayer || (isMultiplayer && isHost)) ? (
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleNextQuestion}
+                                    style={{
+                                        padding: '15px 40px',
+                                        fontSize: '1.2rem',
+                                        borderRadius: '50px',
+                                        boxShadow: '0 0 20px rgba(0, 212, 255, 0.4)',
+                                        animation: 'pulse 2s infinite'
+                                    }}
+                                >
+                                    Next Question ➡️
+                                </button>
+                            ) : (
+                                <div style={{
+                                    padding: '15px 30px',
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '30px',
+                                    color: 'var(--accent-cyan)',
+                                    fontWeight: '600',
+                                    fontSize: '1.1rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}>
+                                    <div className="loading-spinner" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'var(--accent-cyan)' }}></div>
+                                    Waiting for host...
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -584,7 +671,7 @@ const QuizGame = () => {
                     animation: glow 1.5s infinite alternate;
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 

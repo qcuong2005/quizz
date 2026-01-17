@@ -44,5 +44,27 @@ export const logout = () => {
 };
 
 export const getCurrentUser = () => {
-    return JSON.parse(localStorage.getItem("user"));
+    try {
+        const userStr = localStorage.getItem("user");
+        if (!userStr) return null;
+
+        const user = JSON.parse(userStr);
+
+        // Validate token format (JWT should have 2 dots)
+        if (user.token && typeof user.token === 'string') {
+            const parts = user.token.split('.');
+            if (parts.length !== 3) {
+                // Invalid JWT format, clear storage
+                console.error('Invalid JWT token format, clearing storage');
+                localStorage.removeItem("user");
+                return null;
+            }
+        }
+
+        return user;
+    } catch (error) {
+        console.error('Error parsing user from localStorage:', error);
+        localStorage.removeItem("user");
+        return null;
+    }
 };
