@@ -38,6 +38,7 @@ public class SecurityConfig {
                         // 1. Cho phép truy cập Login, Register VÀ Trang giao diện Swagger
                         .requestMatchers("/auth/**").permitAll() // Cho phép truy cập API auth
                         .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers("/auth/**", "/api/auth/**", "/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
                         .requestMatchers("/ws-quiz/**").permitAll() // Cho phép truy cập WebSocket
