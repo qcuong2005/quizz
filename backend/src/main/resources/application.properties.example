@@ -1,0 +1,13 @@
+# Database Configuration
+spring.datasource.url=jdbc:mysql://localhost:3306/quizz?useSSL=false&serverTimezone=UTC
+spring.datasource.username=root
+spring.datasource.password=
+
+# JPA/Hibernate Configuration
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+
+# API Keys (Replace with your actual keys)
+# gemini.api.key=YOUR_GEMINI_API_KEY_HERE
+groq.api.key=YOUR_GROQ_API_KEY_HERE
