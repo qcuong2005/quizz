@@ -16,7 +16,6 @@ public class QuizSocketController {
 
     private final com.example.backend.service.quizz.QuestionService questionService;
     private final com.example.backend.repository.user.UserRepository userRepository;
-    private final com.example.backend.repository.room.RoomRepository roomRepository; // New Injection
     private final SimpMessagingTemplate messagingTemplate;
 
     // Defines the current question for each room to ensure sync
@@ -31,11 +30,9 @@ public class QuizSocketController {
 
     public QuizSocketController(com.example.backend.service.quizz.QuestionService questionService,
             com.example.backend.repository.user.UserRepository userRepository,
-            com.example.backend.repository.room.RoomRepository roomRepository,
             SimpMessagingTemplate messagingTemplate) {
         this.questionService = questionService;
         this.userRepository = userRepository;
-        this.roomRepository = roomRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -54,19 +51,6 @@ public class QuizSocketController {
     public void startRoomGame(@DestinationVariable String roomId, String topic) {
         System.out.println("Room " + roomId + " starting game with topic: " + topic);
 
-        // Initialize Leaderboard for all players in the room
-        roomScores.putIfAbsent(roomId, new ConcurrentHashMap<>());
-        com.example.backend.entity.room.Room room = roomRepository.findById(roomId).orElse(null);
-        if (room != null) {
-            Map<String, Integer> scores = roomScores.get(roomId);
-            for (String player : room.getPlayers()) {
-                scores.putIfAbsent(player, 0);
-            }
-        }
-
-        // Broadcast Initial Leaderboard
-        broadcastLeaderboard(roomId);
-
         // Broadcast "Game Started" signal to move everyone to Quiz Page
         messagingTemplate.convertAndSend("/topic/room/" + roomId,
                 Map.of("type", "GAME_START", "roomId", roomId, "topic", topic));
@@ -82,12 +66,6 @@ public class QuizSocketController {
     @MessageMapping("/room/{roomId}/next-question")
     public void nextQuestion(@DestinationVariable String roomId, String topic) {
         sendNextQuestionToRoom(roomId, topic);
-    }
-
-    // New: Allow late joiners or refreshers to ask for the current leaderboard
-    @MessageMapping("/room/{roomId}/get-leaderboard")
-    public void getRoomLeaderboard(@DestinationVariable String roomId) {
-        broadcastLeaderboard(roomId);
     }
 
     private void sendNextQuestionToRoom(String roomId, String topic) {
@@ -156,33 +134,6 @@ public class QuizSocketController {
         result.put("correctAnswer", currentQ.getCorrectAnswer()); // Reveal answer?
 
         messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", result);
-
-        // Broadcast Updated Leaderboard
-        broadcastLeaderboard(roomId);
-    }
-
-    private void broadcastLeaderboard(String roomId) {
-        Map<String, Integer> scores = roomScores.get(roomId);
-        if (scores == null)
-            return;
-
-        // Sort by score descending
-        java.util.List<Map<String, Object>> leaderboard = scores.entrySet().stream()
-                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
-                .map(entry -> {
-                    Map<String, Object> player = new java.util.HashMap<>();
-                    player.put("username", entry.getKey());
-                    player.put("score", entry.getValue());
-                    // Add avatar or other info if stored? For now, just simplistic.
-                    return player;
-                })
-                .collect(java.util.stream.Collectors.toList());
-
-        Map<String, Object> payload = new java.util.HashMap<>();
-        payload.put("type", "LEADERBOARD_UPDATE");
-        payload.put("leaderboard", leaderboard);
-
-        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", payload);
     }
 
     // Helper for Single Player (Keep existing logic)

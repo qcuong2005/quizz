@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import roomService from '../../services/roomService';
 import { getCurrentUser } from '../../services/authService';
 import Header from '../layout/Header';
+import { Plus, Users, ArrowLeft, Gamepad2 } from 'lucide-react';
 import './RoomLobby.css';
 
 function RoomLobby() {
@@ -71,24 +72,29 @@ function RoomLobby() {
                 <h1 className="lobby-title">🎮 Phòng Multiplayer</h1>
 
                 {mode === 'menu' && (
-                    <div className="lobby-menu">
-                        <button
-                            className="lobby-btn create-btn"
-                            onClick={() => setMode('create')}
-                        >
-                            ➕ Tạo Phòng Mới
-                        </button>
-                        <button
-                            className="lobby-btn join-btn"
-                            onClick={() => setMode('join')}
-                        >
-                            🚪 Vào Phòng
-                        </button>
-                        <button
-                            className="lobby-btn back-btn"
-                            onClick={() => navigate('/')}
-                        >
-                            ⬅️ Quay Lại
+                    <div className="lobby-menu-grid">
+                        {/* Make a Room Card */}
+                        <div className="lobby-card create-card" onClick={() => setMode('create')}>
+                            <div className="card-icon-wrapper">
+                                <Plus size={48} strokeWidth={2.5} />
+                            </div>
+                            <h3>Tạo Phòng Mới</h3>
+                            <p>Làm chủ phòng và mời bạn bè cùng thi đấu!</p>
+                            <div className="card-shine"></div>
+                        </div>
+
+                        {/* Join Room Card */}
+                        <div className="lobby-card join-card" onClick={() => setMode('join')}>
+                            <div className="card-icon-wrapper">
+                                <Users size={48} strokeWidth={2.5} />
+                            </div>
+                            <h3>Vào Phòng</h3>
+                            <p>Nhập mã phòng để tham gia trận đấu ngay.</p>
+                            <div className="card-shine"></div>
+                        </div>
+
+                        <button className="back-link" onClick={() => navigate('/')}>
+                            <ArrowLeft size={20} /> Quay Lại Trang Chủ
                         </button>
                     </div>
                 )}
