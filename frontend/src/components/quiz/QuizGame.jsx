@@ -63,13 +63,25 @@ const QuizGame = () => {
     const [question, setQuestion] = useState(null);
     const [loading, setLoading] = useState(true);
     const [result, setResult] = useState(null);
-    const [score, setScore] = useState(0);
+    const [score, setScore] = useState(user?.totalScore || 0);
     const [timeLeft, setTimeLeft] = useState(15);
 
     // NEW: Suspense Mode States
     const [showResult, setShowResult] = useState(false);
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [roundLeaderboard, setRoundLeaderboard] = useState(null); // New: For MP Leaderboard
+
+    // NEW: Fetch fresh score on mount
+    useEffect(() => {
+        if (user && user.token) {
+            refreshUserData().then(updatedUser => {
+                if (updatedUser) {
+                    console.log("Initial user data refreshed:", updatedUser.totalScore);
+                    setScore(updatedUser.totalScore);
+                }
+            });
+        }
+    }, []);
 
     // WebSocket Client Ref
     const stompClientRef = useRef(null);
