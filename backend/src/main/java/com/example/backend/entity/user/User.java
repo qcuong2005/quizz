@@ -27,7 +27,6 @@ public class User {
     @Column(name = "full_name")
     private String fullName;
 
-    // Stats
     @Column(columnDefinition = "bigint default 0")
     private long totalScore = 0;
 
