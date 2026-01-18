@@ -98,7 +98,7 @@ const QuizGame = () => {
                     // --- MULTIPLAYER MODE ---
                     console.log(`Connected to Multiplayer Room: ${roomId}`);
 
-                    // Subscribe to Room Game Events
+                    // 1. Subscribe to PUBLIC Room Events
                     stompClient.subscribe(`/topic/room/${roomId}/game`, (message) => {
                         const data = JSON.parse(message.body);
 
@@ -109,26 +109,32 @@ const QuizGame = () => {
                             setResult(null);
                             setShowResult(false);
                             setHasSubmitted(false);
-                        } else if (data.type === 'PLAYER_ANSWERED') {
-                            if (data.username === user.username) {
-                                // My result
-                                const isTimeout = timeLeftRef.current <= 0;
-                                setResult({
-                                    message: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? `Chính xác! +${data.scoreAdded}` : "Sai rồi!"),
-                                    score: data.scoreAdded,
-                                    isCorrect: data.isCorrect,
-                                    correctAnswer: data.correctAnswer
-                                });
-                                if (data.scoreAdded > 0) setScore(prev => prev + data.scoreAdded);
-                            }
-                            // Update leaderboard? (Future)
+                        } else if (data.type === 'PLAYER_SUBMITTED') {
+                            // Optional: Show "User X has answered" toast
+                            console.log(`User ${data.username} submitted`);
+                        } else if (data.type === 'ROUND_OVER') {
+                            // Handle Round Over (e.g., show comprehensive leaderboard?)
+                            console.log("Round Over", data);
+                        }
+                    });
+
+                    // 2. Subscribe to PRIVATE User Events (For secure result)
+                    stompClient.subscribe(`/user/queue/private`, (message) => {
+                        const data = JSON.parse(message.body);
+                        if (data.type === 'ANSWER_RESULT') {
+                            const isTimeout = timeLeftRef.current <= 0;
+                            setResult({
+                                message: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? `Chính xác! +${data.scoreAdded}` : "Sai rồi!"),
+                                score: data.scoreAdded,
+                                isCorrect: data.isCorrect,
+                                correctAnswer: data.correctAnswer
+                            });
+                            if (data.scoreAdded > 0) setScore(prev => prev + data.scoreAdded);
+                            setShowResult(true);
                         }
                     });
 
                     // Multiplayer: Wait for host/server to send first question
-                    // If Host, maybe trigger start if not started? 
-                    // Actually, RoomWaiting triggered Start, causing Backend to wait 2s then send Question.
-                    // So just wait here.
                     setLoading(true);
 
                 } else {

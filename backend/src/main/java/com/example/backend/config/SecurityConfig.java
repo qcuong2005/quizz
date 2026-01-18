@@ -43,6 +43,8 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui.html").permitAll()
                         .requestMatchers("/ws-quiz/**").permitAll() // Cho phép truy cập WebSocket
                         .requestMatchers("/api/rankings/**").permitAll() // ✅ Cho phép xem BXH công khai
+                        .requestMatchers("/api/rooms/join-spectator").permitAll() // ✅ Cho phép Khán giả vào xem không
+                                                                                  // cần Login
 
                         // 2. Các API khác vẫn cần đăng nhập mới gọi được
                         .anyRequest().authenticated())
@@ -73,6 +75,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @SuppressWarnings("deprecation")
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userInfoService);

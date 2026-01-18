@@ -62,4 +62,27 @@ public class RoomController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    // API Tham gia làm khán giả (Không cần Login)
+    @PostMapping("/join-spectator")
+    public ResponseEntity<?> joinRoomAsSpectator(@RequestParam String roomId, Principal principal) {
+        String username;
+        if (principal != null) {
+            username = principal.getName();
+        } else {
+            // Generate Guest ID for anonymous spectators
+            // Format: Guest_ + Random 4 digits (or just use a session ID logic if possible,
+            // but simple random is fine for viewing)
+            username = "Guest_" + (int) (Math.random() * 9000 + 1000);
+        }
+
+        try {
+            Room room = roomService.joinRoomAsSpectator(roomId, username);
+            // Broadcast room update (maybe not strict needed for lobby but good for count)
+            messagingTemplate.convertAndSend("/topic/room/" + roomId, room);
+            return ResponseEntity.ok(room);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

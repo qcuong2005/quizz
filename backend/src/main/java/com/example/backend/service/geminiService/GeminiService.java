@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
+
 import com.google.gson.JsonObject;
 
 import java.util.*;
@@ -200,7 +200,9 @@ public class GeminiService {
                                                 .trim();
 
                                 try {
-                                        return gson.fromJson(cleanJson, Map.class);
+                                        @SuppressWarnings("unchecked")
+                                        Map<String, Object> result = gson.fromJson(cleanJson, Map.class);
+                                        return result;
                                 } catch (Exception e) {
                                         System.err.println("Lỗi Parse Groq JSON: " + e.getMessage());
                                         return getFallbackQuestion(keyMap);

@@ -36,7 +36,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic");
+        config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
     }
 
@@ -79,8 +79,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             // Lỗi Token
                         }
                     }
-                    // Nếu không có Token hoặc Token sai -> Ném lỗi (Client sẽ bị ngắt kết nối)
-                    throw new RuntimeException("Bạn chưa đăng nhập! Vui lòng đăng nhập để làm bài test.");
+                    // Nếu không có Token hoặc Token sai -> Vẫn cho phép vào kết nối nhưng Principal
+                    // sẽ là null
+                    // Điều này cho phép Guest (Khán giả) tham gia mà không cần Login
+                    return message;
                 }
                 return message;
             }

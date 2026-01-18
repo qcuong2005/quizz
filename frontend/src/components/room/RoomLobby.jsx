@@ -3,29 +3,35 @@ import { useNavigate } from 'react-router-dom';
 import roomService from '../../services/roomService';
 import { getCurrentUser } from '../../services/authService';
 import Header from '../layout/Header';
-import { Plus, Users, ArrowLeft, Gamepad2 } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Gamepad2, Eye } from 'lucide-react';
 import './RoomLobby.css';
 
 function RoomLobby() {
     const navigate = useNavigate();
-    const [mode, setMode] = useState('menu'); // 'menu', 'create', 'join'
+    const [mode, setMode] = useState('menu'); // 'menu', 'create', 'join', 'spectate'
     const [roomName, setRoomName] = useState('');
     const [capacity, setCapacity] = useState(2);
     const [roomId, setRoomId] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Check authentication
+    // Check authentication - REMOVED strict check to allow Spectators
     useEffect(() => {
-        const user = getCurrentUser();
-        if (!user) {
-            alert('Bạn cần đăng nhập để chơi Multiplayer!');
-            navigate('/login');
-        }
+        // const user = getCurrentUser();
+        // if (!user) {
+        //     alert('Bạn cần đăng nhập để chơi Multiplayer!');
+        //     navigate('/login');
+        // }
     }, [navigate]);
 
     const handleCreateRoom = async (e) => {
         e.preventDefault();
+        const user = getCurrentUser();
+        if (!user) {
+            alert('Vui lòng đăng nhập để tạo phòng!');
+            navigate('/login');
+            return;
+        }
         setError('');
         setLoading(true);
 
@@ -46,6 +52,12 @@ function RoomLobby() {
 
     const handleJoinRoom = async (e) => {
         e.preventDefault();
+        const user = getCurrentUser();
+        if (!user) {
+            alert('Vui lòng đăng nhập để tham gia chơi!');
+            navigate('/login');
+            return;
+        }
         setError('');
         setLoading(true);
 
@@ -58,6 +70,27 @@ function RoomLobby() {
                 setTimeout(() => navigate('/login'), 2000);
             } else {
                 setError(typeof err === 'string' ? err : 'Không thể vào phòng');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSpectateRoom = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+
+        try {
+            const room = await roomService.joinRoomAsSpectator(roomId);
+            // Navigate to Spectator View
+            navigate(`/room/${room.roomId}/spectate`, { state: { room } });
+        } catch (err) {
+            if (err.response?.status === 403) {
+                setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
+                setTimeout(() => navigate('/login'), 2000);
+            } else {
+                setError(typeof err === 'string' ? err : 'Không thể vào xem phòng');
             }
         } finally {
             setLoading(false);
@@ -90,6 +123,16 @@ function RoomLobby() {
                             </div>
                             <h3>Vào Phòng</h3>
                             <p>Nhập mã phòng để tham gia trận đấu ngay.</p>
+                            <div className="card-shine"></div>
+                        </div>
+
+                        {/* Spectate Room Card */}
+                        <div className="lobby-card spectate-card" onClick={() => setMode('spectate')}>
+                            <div className="card-icon-wrapper">
+                                <Eye size={48} strokeWidth={2.5} />
+                            </div>
+                            <h3>Xem Ngay</h3>
+                            <p>Vào xem trận đấu của bạn bè đang diễn ra.</p>
                             <div className="card-shine"></div>
                         </div>
 
@@ -179,6 +222,45 @@ function RoomLobby() {
                                     disabled={loading}
                                 >
                                     {loading ? 'Đang vào...' : '🚀 Vào Phòng'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cancel-btn"
+                                    onClick={() => { setMode('menu'); setError(''); }}
+                                >
+                                    Hủy
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {mode === 'spectate' && (
+                    <div className="lobby-form-container">
+                        <h2>Vào Xem (Khán Giả)</h2>
+                        <form onSubmit={handleSpectateRoom} className="lobby-form">
+                            <div className="form-group">
+                                <label>Mã Phòng:</label>
+                                <input
+                                    type="text"
+                                    value={roomId}
+                                    onChange={(e) => setRoomId(e.target.value)}
+                                    placeholder="Nhập mã 4 chữ số..."
+                                    required
+                                    maxLength={4}
+                                    pattern="[0-9]{4}"
+                                />
+                            </div>
+
+                            {error && <div className="error-message">{error}</div>}
+
+                            <div className="form-actions">
+                                <button
+                                    type="submit"
+                                    className="submit-btn spectate-btn"
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Đang vào...' : '👀 Vào Xem'}
                                 </button>
                                 <button
                                     type="button"

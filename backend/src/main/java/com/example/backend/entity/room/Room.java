@@ -29,6 +29,12 @@ public class Room {
     @Column(name = "player_username")
     private Set<String> players = new HashSet<>();
 
+    // Lưu danh sách khán giả (room_spectators)
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "room_spectators", joinColumns = @JoinColumn(name = "room_id"))
+    @Column(name = "spectator_username")
+    private Set<String> spectators = new HashSet<>();
+
     // 1. Constructor mặc định (Bắt buộc cho JPA)
     public Room() {
     }
@@ -45,6 +51,10 @@ public class Room {
     // Logic thêm người chơi
     public void addPlayer(String username) {
         this.players.add(username);
+    }
+
+    public void addSpectator(String username) {
+        this.spectators.add(username);
     }
 
     // Getters & Setters
@@ -86,5 +96,13 @@ public class Room {
 
     public void setPlayers(Set<String> players) {
         this.players = players;
+    }
+
+    public Set<String> getSpectators() {
+        return spectators;
+    }
+
+    public void setSpectators(Set<String> spectators) {
+        this.spectators = spectators;
     }
 }
