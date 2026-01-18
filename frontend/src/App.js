@@ -7,6 +7,7 @@ import QuizGame from './components/quiz/QuizGame';
 import Leaderboard from './components/leaderboard/Leaderboard';
 import RoomLobby from './components/room/RoomLobby';
 import RoomWaiting from './components/room/RoomWaiting';
+import SpectatorView from './components/quiz/SpectatorView';
 import './styles/GlobalStyles.css';
 import './App.css';
 
@@ -22,6 +23,7 @@ function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/room" element={<RoomLobby />} />
           <Route path="/room/:roomId" element={<RoomWaiting />} />
+          <Route path="/room/:roomId/spectate" element={<SpectatorView />} />
         </Routes>
       </div>
     </Router>

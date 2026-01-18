@@ -29,74 +29,119 @@
 }
 
 /* ============================================
-   MENU BUTTONS
+   MENU GRID
    ============================================ */
-.lobby-menu {
+.lobby-menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.lobby-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 40px 30px;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
-}
-
-.lobby-btn {
-    padding: var(--spacing-lg) var(--spacing-xl);
-    font-size: 1.3rem;
-    font-weight: 600;
-    border: none;
-    border-radius: var(--radius-lg);
-    cursor: pointer;
-    transition: var(--transition-normal);
-    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: var(--spacing-sm);
+    text-align: center;
+    cursor: pointer;
     position: relative;
     overflow: hidden;
-}
-
-.lobby-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
-    pointer-events: none;
-}
-
-.create-btn {
-    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-    color: white;
-    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
-}
-
-.create-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(0, 212, 255, 0.5);
-}
-
-.join-btn {
-    background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
-    color: white;
-    box-shadow: 0 4px 20px rgba(255, 0, 128, 0.3);
-}
-
-.join-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(255, 0, 128, 0.5);
-}
-
-.back-btn {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    color: var(--text-primary);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     backdrop-filter: blur(10px);
 }
 
-.back-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--accent-cyan);
-    transform: translateY(-2px);
+.lobby-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.card-icon-wrapper {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 25px;
+    transition: transform 0.5s ease;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.lobby-card:hover .card-icon-wrapper {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.create-card .card-icon-wrapper {
+    color: #00d4ff;
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+}
+
+.join-card .card-icon-wrapper {
+    color: #ff0080;
+    border: 2px solid rgba(255, 0, 128, 0.3);
+    box-shadow: 0 0 20px rgba(255, 0, 128, 0.1);
+}
+
+.lobby-card h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: white;
+}
+
+.lobby-card p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* Shine Effect */
+.card-shine {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(to right,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.1) 50%,
+            rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-25deg);
+    transition: left 0.5s;
+    pointer-events: none;
+}
+
+.lobby-card:hover .card-shine {
+    left: 200%;
+    transition: left 0.75s;
+}
+
+/* Back Link */
+.back-link {
+    grid-column: 1 / -1;
+    margin-top: 20px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: color 0.3s;
+}
+
+.back-link:hover {
+    color: white;
+    text-decoration: underline;
 }
 
 /* ============================================
@@ -273,6 +318,11 @@
 @media (max-width: 768px) {
     .lobby-container {
         padding: var(--spacing-xl) var(--spacing-md);
+    }
+
+    .lobby-menu-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
 
     .lobby-title {

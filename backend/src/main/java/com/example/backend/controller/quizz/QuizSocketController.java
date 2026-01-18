@@ -16,7 +16,7 @@ public class QuizSocketController {
 
     private final com.example.backend.service.quizz.QuestionService questionService;
     private final com.example.backend.repository.user.UserRepository userRepository;
-    private final com.example.backend.repository.room.RoomRepository roomRepository; // New Injection
+    private final com.example.backend.service.room.RoomService roomService;
     private final SimpMessagingTemplate messagingTemplate;
 
     // Defines the current question for each room to ensure sync
@@ -26,16 +26,19 @@ public class QuizSocketController {
     // Store scores for the room: roomId -> (username -> score)
     private static final Map<String, Map<String, Integer>> roomScores = new ConcurrentHashMap<>();
 
+    // Track users who answered current question: roomId -> Set<Username>
+    private static final Map<String, java.util.Set<String>> roomAnsweredUsers = new ConcurrentHashMap<>();
+
     // Keep userStreaks for single player (or global streaks)
     private static final Map<String, Integer> userStreaks = new ConcurrentHashMap<>();
 
     public QuizSocketController(com.example.backend.service.quizz.QuestionService questionService,
             com.example.backend.repository.user.UserRepository userRepository,
-            com.example.backend.repository.room.RoomRepository roomRepository,
+            com.example.backend.service.room.RoomService roomService,
             SimpMessagingTemplate messagingTemplate) {
         this.questionService = questionService;
         this.userRepository = userRepository;
-        this.roomRepository = roomRepository;
+        this.roomService = roomService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -54,19 +57,6 @@ public class QuizSocketController {
     public void startRoomGame(@DestinationVariable String roomId, String topic) {
         System.out.println("Room " + roomId + " starting game with topic: " + topic);
 
-        // Initialize Leaderboard for all players in the room
-        roomScores.putIfAbsent(roomId, new ConcurrentHashMap<>());
-        com.example.backend.entity.room.Room room = roomRepository.findById(roomId).orElse(null);
-        if (room != null) {
-            Map<String, Integer> scores = roomScores.get(roomId);
-            for (String player : room.getPlayers()) {
-                scores.putIfAbsent(player, 0);
-            }
-        }
-
-        // Broadcast Initial Leaderboard
-        broadcastLeaderboard(roomId);
-
         // Broadcast "Game Started" signal to move everyone to Quiz Page
         messagingTemplate.convertAndSend("/topic/room/" + roomId,
                 Map.of("type", "GAME_START", "roomId", roomId, "topic", topic));
@@ -84,15 +74,11 @@ public class QuizSocketController {
         sendNextQuestionToRoom(roomId, topic);
     }
 
-    // New: Allow late joiners or refreshers to ask for the current leaderboard
-    @MessageMapping("/room/{roomId}/get-leaderboard")
-    public void getRoomLeaderboard(@DestinationVariable String roomId) {
-        broadcastLeaderboard(roomId);
-    }
-
     private void sendNextQuestionToRoom(String roomId, String topic) {
         com.example.backend.entity.quizz.Question q = questionService.getOrGenerateQuestion(topic);
         roomCurrentQuestion.put(roomId, q);
+        // Reset answered users
+        roomAnsweredUsers.put(roomId, ConcurrentHashMap.newKeySet());
 
         // Convert to response map
         Map<String, Object> response = new java.util.HashMap<>();
@@ -141,48 +127,56 @@ public class QuizSocketController {
         Map<String, Integer> scores = roomScores.get(roomId);
         scores.put(username, scores.getOrDefault(username, 0) + score);
 
-        // Broadcast result to this user (or everyone? In Kahoot everyone sees who
-        // answered)
-        // For now, send result back to everyone so they can see "Player X answered"
-        // (but hide correctness?)
-        // Or just send Private result to user and Leaderboard update to everyone.
+        // Mark user as answered
+        roomAnsweredUsers.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(username);
 
-        Map<String, Object> result = new java.util.HashMap<>();
-        result.put("type", "PLAYER_ANSWERED");
-        result.put("username", username);
-        result.put("scoreAdded", score);
-        result.put("totalScore", scores.get(username));
-        result.put("isCorrect", isCorrect); // Client validates coloring
-        result.put("correctAnswer", currentQ.getCorrectAnswer()); // Reveal answer?
+        // 1. Send PRIVATE result to the user
+        Map<String, Object> privateResult = new java.util.HashMap<>();
+        privateResult.put("type", "ANSWER_RESULT");
+        privateResult.put("isCorrect", isCorrect);
+        privateResult.put("scoreAdded", score);
+        privateResult.put("totalScore", scores.get(username));
+        privateResult.put("correctAnswer", currentQ.getCorrectAnswer());
 
-        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", result);
+        messagingTemplate.convertAndSendToUser(username, "/queue/private", privateResult);
 
-        // Broadcast Updated Leaderboard
-        broadcastLeaderboard(roomId);
+        // 2. Broadcast PUBLIC "Submitted" event
+        Map<String, Object> publicEvent = new java.util.HashMap<>();
+        publicEvent.put("type", "PLAYER_SUBMITTED");
+        publicEvent.put("username", username);
+
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", publicEvent);
+
+        // 3. Check if EVERYONE has answered
+        try {
+            int totalPlayers = roomService.getRoomById(roomId).getPlayers().size();
+            int answeredCount = roomAnsweredUsers.get(roomId).size();
+
+            if (answeredCount >= totalPlayers) {
+                broadcastRoundResult(roomId, currentQ);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void broadcastLeaderboard(String roomId) {
+    private void broadcastRoundResult(String roomId, com.example.backend.entity.quizz.Question question) {
+        Map<String, Object> roundResult = new java.util.HashMap<>();
+        roundResult.put("type", "ROUND_OVER");
+        roundResult.put("correctAnswer", question.getCorrectAnswer());
+
         Map<String, Integer> scores = roomScores.get(roomId);
-        if (scores == null)
-            return;
+        java.util.List<Map<String, Object>> leaderboard = new java.util.ArrayList<>();
+        if (scores != null) {
+            scores.forEach((u, s) -> {
+                leaderboard.add(Map.of("username", u, "score", s));
+            });
+        }
+        leaderboard.sort((a, b) -> ((Integer) b.get("score")).compareTo((Integer) a.get("score")));
 
-        // Sort by score descending
-        java.util.List<Map<String, Object>> leaderboard = scores.entrySet().stream()
-                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
-                .map(entry -> {
-                    Map<String, Object> player = new java.util.HashMap<>();
-                    player.put("username", entry.getKey());
-                    player.put("score", entry.getValue());
-                    // Add avatar or other info if stored? For now, just simplistic.
-                    return player;
-                })
-                .collect(java.util.stream.Collectors.toList());
+        roundResult.put("leaderboard", leaderboard);
 
-        Map<String, Object> payload = new java.util.HashMap<>();
-        payload.put("type", "LEADERBOARD_UPDATE");
-        payload.put("leaderboard", leaderboard);
-
-        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", payload);
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", roundResult);
     }
 
     // Helper for Single Player (Keep existing logic)

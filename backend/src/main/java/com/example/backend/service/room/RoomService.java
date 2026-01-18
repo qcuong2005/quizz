@@ -57,4 +57,28 @@ public class RoomService {
     private String generateRoomId() {
         return String.valueOf(1000 + random.nextInt(9000));
     }
-}   
+
+    // 3. Vào xem (Khán giả)
+    public Room joinRoomAsSpectator(String roomId, String username) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Mã phòng không tồn tại!"));
+
+        // Check if user is already a player
+        if (room.getPlayers().contains(username)) {
+            // If playing, just return room
+            return room;
+        }
+
+        if (!room.getSpectators().contains(username)) {
+            room.addSpectator(username);
+            return roomRepository.save(room);
+        }
+
+        return room;
+    }
+
+    public Room getRoomById(String roomId) {
+        return roomRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Mã phòng không tồn tại!"));
+    }
+}

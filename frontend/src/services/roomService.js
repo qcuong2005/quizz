@@ -70,6 +70,37 @@ const roomService = {
     } catch (error) {
       throw error.response?.data || error.message || 'Không thể vào phòng';
     }
+  },
+
+  // Tham gia xem (Spectator) - Có thể không cần login
+  joinRoomAsSpectator: async (roomId) => {
+    try {
+      // Try to get token if logged in, but don't fail if not
+      let token = null;
+      try {
+        token = getValidToken();
+      } catch (e) {
+        // Not logged in, that's fine for spectator
+        console.log("Joined as Guest");
+      }
+
+      const config = {
+        params: { roomId }
+      };
+
+      if (token) {
+        config.headers = { 'Authorization': `Bearer ${token}` };
+      }
+
+      const response = await axios.post(
+        `${API_URL}/join-spectator`,
+        null,
+        config
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message || 'Không thể vào xem phòng';
+    }
   }
 };
 

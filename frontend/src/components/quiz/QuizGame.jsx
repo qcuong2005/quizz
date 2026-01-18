@@ -98,7 +98,7 @@ const QuizGame = () => {
                     // --- MULTIPLAYER MODE ---
                     console.log(`Connected to Multiplayer Room: ${roomId}`);
 
-                    // Subscribe to Room Game Events
+                    // 1. Subscribe to PUBLIC Room Events
                     stompClient.subscribe(`/topic/room/${roomId}/game`, (message) => {
                         const data = JSON.parse(message.body);
 
@@ -109,25 +109,32 @@ const QuizGame = () => {
                             setResult(null);
                             setShowResult(false);
                             setHasSubmitted(false);
-                        } else if (data.type === 'PLAYER_ANSWERED') {
-                            if (data.username === user.username) {
-                                // My result
-                                setResult({
-                                    message: data.isCorrect ? `Chính xác! +${data.scoreAdded}` : "Sai rồi!",
-                                    score: data.scoreAdded,
-                                    isCorrect: data.isCorrect,
-                                    correctAnswer: data.correctAnswer
-                                });
-                                if (data.scoreAdded > 0) setScore(prev => prev + data.scoreAdded);
-                            }
-                            // Update leaderboard? (Future)
+                        } else if (data.type === 'PLAYER_SUBMITTED') {
+                            // Optional: Show "User X has answered" toast
+                            console.log(`User ${data.username} submitted`);
+                        } else if (data.type === 'ROUND_OVER') {
+                            // Handle Round Over (e.g., show comprehensive leaderboard?)
+                            console.log("Round Over", data);
+                        }
+                    });
+
+                    // 2. Subscribe to PRIVATE User Events (For secure result)
+                    stompClient.subscribe(`/user/queue/private`, (message) => {
+                        const data = JSON.parse(message.body);
+                        if (data.type === 'ANSWER_RESULT') {
+                            const isTimeout = timeLeftRef.current <= 0;
+                            setResult({
+                                message: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? `Chính xác! +${data.scoreAdded}` : "Sai rồi!"),
+                                score: data.scoreAdded,
+                                isCorrect: data.isCorrect,
+                                correctAnswer: data.correctAnswer
+                            });
+                            if (data.scoreAdded > 0) setScore(prev => prev + data.scoreAdded);
+                            setShowResult(true);
                         }
                     });
 
                     // Multiplayer: Wait for host/server to send first question
-                    // If Host, maybe trigger start if not started? 
-                    // Actually, RoomWaiting triggered Start, causing Backend to wait 2s then send Question.
-                    // So just wait here.
                     setLoading(true);
 
                 } else {
@@ -185,18 +192,24 @@ const QuizGame = () => {
     }, [topic, navigate, isMultiplayer, roomId]);
 
     // Timer Logic
+    const timeLeftRef = useRef(15);
     useEffect(() => {
+        timeLeftRef.current = timeLeft;
         // If loading or if result is ALREADY shown, stop timer
         if (loading || showResult) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
-                if (prev <= 1) {
+                const newValue = prev - 1;
+                timeLeftRef.current = newValue; // Sync ref immediately
+                if (newValue < 0) { // Slight buffer: < 0 instead of <= 1 to ensure 0 is shown? 
+                    // Wait, existing logic: if prev <= 1 -> return 0.
+                    // Let's keep existing logic but update ref.
                     clearInterval(timer);
                     handleTimeOut();
                     return 0;
                 }
-                return prev - 1;
+                return newValue;
             });
         }, 1000);
         return () => clearInterval(timer);
@@ -267,7 +280,7 @@ const QuizGame = () => {
         if (!question || hasSubmitted) return;
 
         const isCorrect = selectedAns === question.correctAnswer;
-        if (!isCorrect && isSecondChanceActive && !hasRetried && !isMultiplayer) {
+        if (selectedAns !== "TIMEOUT" && !isCorrect && isSecondChanceActive && !hasRetried && !isMultiplayer) {
             // Second chance only available in Single Player for now? Or sync it?
             // Let's allow it locally but backend might not know. 
             // For multiplayer simplicity, let's keep powerups local or disable them.
@@ -320,12 +333,9 @@ const QuizGame = () => {
     };
 
     const handleTimeOut = () => {
-        // If user hasn't answered locally, generate a timeout result locally (optional)
-        // But backend usually handles timeout if we send nothing? 
-        // For simplicity, we just show result. If result is null (no answer sent), we might need to handle that.
-        // Assuming backend sends a result or valid state eventually. 
-        if (!result) {
-            setResult({ message: "⏰ Hết giờ!", score: 0 });
+        // If user hasn't answered, force submit a wrong answer to get the correct one from server
+        if (!hasSubmitted) {
+            handleAnswer("TIMEOUT");
         }
         setShowResult(true);
     };
@@ -507,15 +517,25 @@ const QuizGame = () => {
 
                                     let specialClass = '';
                                     if (showResult && result) {
-                                        if (opt === question.correctAnswer) {
+                                        // Use result.correctAnswer if available (Multiplayer), else question.correctAnswer
+                                        const correctAns = result.correctAnswer || question.correctAnswer;
+
+                                        if (opt === correctAns) {
                                             btnStyle.background = 'rgba(0, 255, 136, 0.2)';
                                             btnStyle.borderColor = '#00ff88';
                                             btnStyle.boxShadow = '0 0 20px rgba(0, 255, 136, 0.4)';
                                             btnStyle.transform = 'scale(1.02)';
                                         } else if (opt === result.userAnswer) {
-                                            btnStyle.background = 'rgba(255, 65, 108, 0.2)';
-                                            btnStyle.borderColor = '#ff416c';
-                                            btnStyle.opacity = '0.8';
+                                            if (result.isCorrect) {
+                                                // Should have been caught above if user answer == correct answer
+                                                // But if for some reason logic differs, safe fallback:
+                                                btnStyle.background = 'rgba(0, 255, 136, 0.2)';
+                                                btnStyle.borderColor = '#00ff88';
+                                            } else {
+                                                btnStyle.background = 'rgba(255, 65, 108, 0.2)';
+                                                btnStyle.borderColor = '#ff416c';
+                                                btnStyle.opacity = '0.8';
+                                            }
                                         } else {
                                             btnStyle.opacity = '0.5';
                                         }
