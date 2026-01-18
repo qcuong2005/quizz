@@ -1,18 +1,24 @@
 package com.example.backend.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.example.backend.entity.user.User;
 import com.example.backend.repository.user.UserRepository;
 import com.example.backend.security.JwtUtils;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -98,6 +104,60 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Sai tài khoản hoặc mật khẩu");
         }
         return ResponseEntity.badRequest().body("Đăng nhập thất bại");
+    }
+
+    // 4. API lấy thông tin người dùng hiện tại (Frontend dùng sau khi login)
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@RequestHeader("Authorization") String authHeader) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Thiếu hoặc sai định dạng token");
+            }
+
+            // 1️⃣ Tách token ra khỏi header
+            String token = authHeader.substring(7);
+
+            // 2️⃣ Giải mã token để lấy username
+            String username = jwtUtils.extractUsername(token);
+            if (username == null) {
+                return ResponseEntity.status(401).body("Token không hợp lệ");
+            }
+
+            // 3️⃣ Tìm user trong DB
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(404).body("User không tồn tại");
+            }
+
+            // 4️⃣ Chuẩn bị dữ liệu trả về
+            Map<String, Object> response = new HashMap<>();
+            response.put("username", user.getUsername());
+            response.put("fullName", user.getFullName());
+            response.put("role", user.getRole());
+            response.put("totalScore", user.getTotalScore());
+            response.put("streak", user.getStreak());
+            response.put("gamesPlayed", user.getGamesPlayed());
+
+            // RankName (theo logic của bạn)
+            long score = user.getTotalScore();
+            String rank = "Học viên";
+            if (score > 5000)
+                rank = "Bậc thầy";
+            else if (score > 2000)
+                rank = "Chuyên gia";
+            else if (score > 500)
+                rank = "Ưu tú";
+            response.put("rankName", rank);
+
+            // Rank thật (vị trí trong leaderboard)
+            long rankPosition = userRepository.countByTotalScoreGreaterThan(user.getTotalScore()) + 1;
+            response.put("rank", rankPosition);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Lỗi khi lấy thông tin user: " + e.getMessage());
+        }
     }
 
     // 3. API Đăng nhập dành riêng cho ADMIN (Check quyền chặt chẽ)
