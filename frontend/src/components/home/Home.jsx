@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser, logout } from '../../services/authService';
+import { getCurrentUser, logout, refreshUserData } from '../../services/authService';
 import Header from '../layout/Header';
 import '../../styles/GlobalStyles.css';
 import { Calculator, Atom, BookOpen, Landmark, Globe, Languages, BrainCircuit, Scroll, Sun, CloudRain, Leaf, Snowflake, Sparkles, Search, Trophy, Flame, Star, Target } from 'lucide-react';
@@ -15,6 +15,13 @@ const Home = () => {
     useEffect(() => {
         const currentUser = getCurrentUser();
         setUser(currentUser);
+
+        // Always fetch fresh data from server
+        if (currentUser) {
+            refreshUserData().then(updated => {
+                if (updated) setUser(updated);
+            });
+        }
 
         const month = new Date().getMonth(); // 0-11
         let seasonTheme = '';
