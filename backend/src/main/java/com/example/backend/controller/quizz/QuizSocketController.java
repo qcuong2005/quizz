@@ -16,6 +16,7 @@ public class QuizSocketController {
 
     private final com.example.backend.service.quizz.QuestionService questionService;
     private final com.example.backend.repository.user.UserRepository userRepository;
+    private final com.example.backend.repository.user.ScoreHistoryRepository scoreHistoryRepository; // NEW
     private final com.example.backend.service.room.RoomService roomService;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -34,10 +35,12 @@ public class QuizSocketController {
 
     public QuizSocketController(com.example.backend.service.quizz.QuestionService questionService,
             com.example.backend.repository.user.UserRepository userRepository,
+            com.example.backend.repository.user.ScoreHistoryRepository scoreHistoryRepository, // NEW
             com.example.backend.service.room.RoomService roomService,
             SimpMessagingTemplate messagingTemplate) {
         this.questionService = questionService;
         this.userRepository = userRepository;
+        this.scoreHistoryRepository = scoreHistoryRepository;
         this.roomService = roomService;
         this.messagingTemplate = messagingTemplate;
     }
@@ -129,6 +132,41 @@ public class QuizSocketController {
 
         // Mark user as answered
         roomAnsweredUsers.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(username);
+
+        // --- PERSIST SCORE & STATS TO DB ---
+        // Always update stats (games played, streak) even if score is 0
+        try {
+            com.example.backend.entity.user.User user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                // 1. Update Games Played (increment for every question answered)
+                user.setGamesPlayed(user.getGamesPlayed() + 1);
+
+                // 2. Update Streak
+                if (isCorrect) {
+                    user.setStreak(user.getStreak() + 1);
+                } else {
+                    user.setStreak(0);
+                }
+
+                // 3. Update Total Score
+                if (score > 0) {
+                    user.setTotalScore(user.getTotalScore() + score);
+
+                    // 4. Save Score History
+                    com.example.backend.entity.user.ScoreHistory history = new com.example.backend.entity.user.ScoreHistory(
+                            user, score, "MULTI", roomId);
+                    scoreHistoryRepository.save(history);
+                }
+
+                userRepository.save(user); // Persist all changes
+                System.out.println("✅ Saved MP Stats for " + username + ": Score+=" + score + ", Streak="
+                        + user.getStreak() + ", Total=" + user.getTotalScore());
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error saving multiplayer stats: " + e.getMessage());
+            e.printStackTrace();
+        }
+        // --------------------------------
 
         // 1. Send PRIVATE result to the user
         Map<String, Object> privateResult = new java.util.HashMap<>();
@@ -269,7 +307,15 @@ public class QuizSocketController {
                 long earnedScore = (response.get("score") instanceof Integer)
                         ? ((Integer) response.get("score")).longValue()
                         : 0L;
-                user.setTotalScore(user.getTotalScore() + earnedScore);
+
+                if (earnedScore > 0) {
+                    user.setTotalScore(user.getTotalScore() + earnedScore);
+
+                    // SAVE HISTORY FOR SINGLE PLAYER
+                    com.example.backend.entity.user.ScoreHistory history = new com.example.backend.entity.user.ScoreHistory(
+                            user, (int) earnedScore, "SINGLE", null);
+                    scoreHistoryRepository.save(history);
+                }
 
                 // Update Streak (Max streak logic vs Current streak?)
                 // Assuming "streak" field in DB is Current Streak

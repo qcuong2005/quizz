@@ -39,8 +39,40 @@ export const register = async (username, password, fullName) => {
     return response.text();
 };
 
+// ... (previous code)
+
 export const logout = () => {
     localStorage.removeItem("user");
+};
+
+export const refreshUserData = async () => {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.token) return null;
+
+    try {
+        const response = await fetch(`${API_URL}/me`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${currentUser.token}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to refresh user data");
+        }
+
+        const freshData = await response.json();
+
+        // Merge fresh data with existing token (backend might not return token in /me)
+        const updatedUser = { ...currentUser, ...freshData };
+
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        return updatedUser;
+    } catch (error) {
+        console.error("Error refreshing user data:", error);
+        return null;
+    }
 };
 
 export const getCurrentUser = () => {
