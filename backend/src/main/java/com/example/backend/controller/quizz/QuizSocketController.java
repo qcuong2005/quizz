@@ -148,22 +148,16 @@ public class QuizSocketController {
                     user.setStreak(0);
                 }
 
-                // 3. Update Total Score
-                if (score > 0) {
-                    user.setTotalScore(user.getTotalScore() + score);
-
-                    // 4. Save Score History
-                    com.example.backend.entity.user.ScoreHistory history = new com.example.backend.entity.user.ScoreHistory(
-                            user, score, "MULTI", roomId);
-                    scoreHistoryRepository.save(history);
-                }
-
-                userRepository.save(user); // Persist all changes
-                System.out.println("✅ Saved MP Stats for " + username + ": Score+=" + score + ", Streak="
-                        + user.getStreak() + ", Total=" + user.getTotalScore());
+                // 3. Update Total Score (DISABLED FOR MULTIPLAYER)
+                // if (score > 0) {
+                // user.setTotalScore(user.getTotalScore() + score);
+                // ...
+                // }
+                // We do NOT save title/score to DB for Multiplayer as per user request.
+                // Only room-session scores matter.
             }
         } catch (Exception e) {
-            System.err.println("❌ Error saving multiplayer stats: " + e.getMessage());
+            System.err.println("❌ Error saving multiplayer stats (Skipped): " + e.getMessage());
             e.printStackTrace();
         }
         // --------------------------------
@@ -175,6 +169,7 @@ public class QuizSocketController {
         privateResult.put("scoreAdded", score);
         privateResult.put("totalScore", scores.get(username));
         privateResult.put("correctAnswer", currentQ.getCorrectAnswer());
+        privateResult.put("userAnswer", userAns);
 
         messagingTemplate.convertAndSendToUser(username, "/queue/private", privateResult);
 
@@ -264,6 +259,8 @@ public class QuizSocketController {
 
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("username", currentUsername);
+        response.put("userAnswer", userAns);
+        response.put("correctAnswer", correctAns);
 
         if (userAns.equalsIgnoreCase(correctAns)) {
             // 1. Tính điểm: 100 cơ bản + (thời gian còn lại * 5)

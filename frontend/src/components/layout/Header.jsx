@@ -31,7 +31,7 @@ const Header = () => {
                                 gap: '8px',
                                 color: 'var(--text-secondary)'
                             }}>
-                                👋 Xin chào, <strong style={{ color: 'var(--accent-cyan)' }}>{user.username}</strong>
+                                👋 Xin chào, <strong style={{ color: 'var(--accent-cyan)' }}>{user.fullName || user.username}</strong>
                             </span>
                             <button
                                 onClick={handleLogout}
