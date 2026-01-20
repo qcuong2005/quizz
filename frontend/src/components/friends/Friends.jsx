@@ -169,6 +169,9 @@ const Friends = () => {
                         <div className="friend-header">
                             <div className="friend-avatar">
                                 {(friend.fullName || friend.username).charAt(0).toUpperCase()}
+                                <span className={`status-dot ${friend.online ? 'online' : 'offline'}`}
+                                    title={friend.online ? 'Online' : 'Offline'}>
+                                </span>
                             </div>
                             <div className="friend-info">
                                 <h3>{friend.fullName || friend.username}</h3>

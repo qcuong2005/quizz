@@ -178,6 +178,7 @@ public class FriendService {
             friendData.put("totalScore", friend.getTotalScore());
             friendData.put("streak", friend.getStreak());
             friendData.put("gamesPlayed", friend.getGamesPlayed());
+            friendData.put("online", friend.isOnline());
             friendData.put("friendsSince", friendship.getCreatedAt());
 
             // Calculate rank
@@ -253,6 +254,7 @@ public class FriendService {
                     userData.put("username", user.getUsername());
                     userData.put("fullName", user.getFullName());
                     userData.put("totalScore", user.getTotalScore());
+                    userData.put("online", user.isOnline());
                     userData.put("isPending", pendingUserIds.contains(user.getId()));
 
                     long rankPosition = userRepository.countByTotalScoreGreaterThan(user.getTotalScore()) + 1;

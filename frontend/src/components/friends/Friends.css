@@ -114,6 +114,8 @@
     font-weight: 700;
     color: white;
     flex-shrink: 0;
+    position: relative;
+    /* Essential for status dot */
 }
 
 .friend-info {
@@ -487,7 +489,9 @@
         width: 100%;
         justify-content: center;
     }
-}/* Custom Toast Notifications - Xịn xò  */
+}
+
+/* Custom Toast Notifications - Xịn xò  */
 .Toastify__toast {
     background: rgba(30, 30, 50, 0.95) !important;
     backdrop-filter: blur(20px) !important;
@@ -523,6 +527,7 @@
 .Toastify__close-button:hover {
     opacity: 1 !important;
 }
+
 /* Custom Modal */
 .modal-overlay {
     position: fixed;
@@ -603,11 +608,45 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- ONLINE STATUS FIX --- */
+.status-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(30, 30, 50, 0.95);
+    background: #ccc;
+    z-index: 100;
+}
+
+.status-dot.online {
+    background: #00ff88;
+    box-shadow: 0 0 8px #00ff88;
+}
+
+.status-dot.offline {
+    background: #ff4757;
 }
