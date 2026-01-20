@@ -1,7 +1,11 @@
 package com.example.backend.entity.room;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+
+import com.example.backend.dto.room.RoomQuestionDTO; // Import DTO
 
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -17,29 +21,34 @@ import jakarta.persistence.Table;
 public class Room {
 
     @Id
-    private String roomId; // Mã phòng (Khóa chính)
+    private String roomId;
 
     private String roomName;
     private int capacity;
     private String host;
 
-    // Lưu danh sách người chơi (Hibernate sẽ tạo bảng phụ room_players)
+    // --- PLAYERS ---
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "room_players", joinColumns = @JoinColumn(name = "room_id"))
     @Column(name = "player_username")
     private Set<String> players = new HashSet<>();
 
-    // Lưu danh sách khán giả (room_spectators)
+    // --- SPECTATORS ---
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "room_spectators", joinColumns = @JoinColumn(name = "room_id"))
     @Column(name = "spectator_username")
     private Set<String> spectators = new HashSet<>();
 
-    // 1. Constructor mặc định (Bắt buộc cho JPA)
+    // --- QUESTIONS (THÊM ĐOẠN NÀY) ---
+    // Lưu danh sách câu hỏi. "RoomQuestionDTO" phải có @Embeddable
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "room_questions", joinColumns = @JoinColumn(name = "room_id"))
+    private List<RoomQuestionDTO> questions = new ArrayList<>(); // Khởi tạo ngay để không bị Null
+
+    // --- Constructor ---
     public Room() {
     }
 
-    // 2. Constructor dùng để tạo mới
     public Room(String roomId, String roomName, int capacity, String host) {
         this.roomId = roomId;
         this.roomName = roomName;
@@ -48,7 +57,7 @@ public class Room {
         this.players.add(host);
     }
 
-    // Logic thêm người chơi
+    // --- Helper Methods ---
     public void addPlayer(String username) {
         this.players.add(username);
     }
@@ -57,7 +66,7 @@ public class Room {
         this.spectators.add(username);
     }
 
-    // Getters & Setters
+    // --- Getters & Setters ---
     public String getRoomId() {
         return roomId;
     }
@@ -104,5 +113,14 @@ public class Room {
 
     public void setSpectators(Set<String> spectators) {
         this.spectators = spectators;
+    }
+
+    // GETTER & SETTER CHO QUESTIONS (BẮT BUỘC)
+    public List<RoomQuestionDTO> getQuestions() {
+        return questions;
+    }
+
+    public void setQuestions(List<RoomQuestionDTO> questions) {
+        this.questions = questions;
     }
 }
