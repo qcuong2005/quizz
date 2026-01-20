@@ -136,6 +136,10 @@ public class GeminiService {
                 String[] difficulties = { "DỄ (Easy)", "VỪA (Medium)", "KHÓ (Hard)" };
                 String selectedDifficulty = difficulties[new Random().nextInt(difficulties.length)];
 
+                // --- LOGIC THỜI GIAN (FIXED 45s) ---
+                int timeLimit = 45;
+                // -----------------------------------
+
                 // 4. XÁC ĐỊNH NGÔN NGỮ
                 boolean isEnglishTopic = mainTopic.equalsIgnoreCase("Tiếng Anh");
                 String languageInstruction = isEnglishTopic
@@ -143,25 +147,26 @@ public class GeminiService {
                                 : "- Ngôn ngữ: Toàn bộ câu hỏi, đáp án và giải thích phải bằng TIẾNG VIỆT.\n";
 
                 // 5. PROMPT CẢI TIẾN
-                String promptText = "Bạn là chuyên gia giáo dục và khảo thí hàng đầu. Hãy tạo 1 câu hỏi trắc nghiệm THÚ VỊ và HAY về: '"
+                String promptText = "Bạn là chuyên gia giáo dục và khảo thí hàng đầu. Nhiệm vụ của bạn là tạo 1 câu hỏi trắc nghiệm CHÍNH XÁC, THÚ VỊ và HAY về chủ đề: '"
                                 + specificTopic + "'.\n\n" +
                                 "📊 MỨC ĐỘ: " + selectedDifficulty + "\n" +
                                 "- DỄ: Kiến thức cơ bản, phổ thông, ai cũng có thể biết.\n" +
-                                "- VỪA: Cần suy nghĩ một chút, kiến thức nâng cao.\n" +
-                                "- KHÓ: Hóc búa, ít người biết, đòi hỏi tư duy sâu.\n\n" +
-                                "📝 YÊU CẦU:\n" +
+                                "- VỪA: Cần suy nghĩ một chút, kiến thức nâng cao, tư duy logic.\n" +
+                                "- KHÓ: Hóc búa, ít người biết, đòi hỏi tư duy sâu và kiến thức rộng.\n\n" +
+                                "📝 YÊU CẦU BẮT BUỘC:\n" +
                                 languageInstruction +
-                                "- Nội dung: Câu hỏi phải thú vị, hấp dẫn, mang tính giáo dục cao.\n" +
+                                "- CHÍNH XÁC TUYỆT ĐỐI: Câu hỏi và đáp án phải đúng sự thật, không gây tranh cãi.\n" +
+                                "- Nội dung: Phải thú vị, hấp dẫn, mang tính giáo dục, không quá khô khan.\n" +
                                 "- ĐỊNH DẠNG TOÁN HỌC (QUAN TRỌNG): Tất cả các công thức toán học, số mũ, phân số... BẮT BUỘC phải viết dưới dạng LaTeX, được bao quanh bởi dấu $. Ví dụ: $x^2 + 2x + 1 = 0$ hoặc $\\frac{a}{b}$. Không dùng plain text cho công thức.\n"
                                 +
-                                "- Đáp án nhiễu: 3 đáp án sai phải hợp lý, dễ gây nhầm lẫn nhưng không quá vô lý.\n" +
-                                "- Giải thích: Cung cấp giải thích ngắn gọn (2-3 câu) bằng ngôn ngữ tương ứng, giúp người chơi hiểu tại sao đáp án đúng.\n"
+                                "- Các lựa chọn (Options): 1 đáp án đúng và 3 đáp án nhiễu. Đáp án nhiễu phải hợp lý để đánh lừa người chưa nắm chắc kiến thức.\n"
                                 +
-                                "- Tránh câu hỏi quá khô khan hoặc mang tính học thuật nặng nề.\n\n" +
-                                "📋 ĐỊNH DẠNG JSON BẮT BUỘC:\n" +
-                                "{ \"question\": \"Nội dung câu hỏi?\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"correctAnswer\": \"A. ...\", \"explanation\": \"Giải thích ngắn gọn.\", \"difficulty\": \""
+                                "- GIẢI THÍCH (Explanation): Cực kỳ quan trọng. Giải thích ngắn gọn (2-3 câu) nhưng phải đi thẳng vào vấn đề: Tại sao đáp án đó đúng? Cung cấp thêm thông tin thú vị liên quan nếu có.\n\n"
+                                +
+                                "📋 ĐỊNH DẠNG JSON BẮT BUỘC (Trả về JSON thuần, không Markdown):\n" +
+                                "{ \"question\": \"Nội dung câu hỏi?\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"correctAnswer\": \"A. ...\", \"explanation\": \"Giải thích chính xác và súc tích.\", \"difficulty\": \""
                                 + selectedDifficulty + "\" }\n\n" +
-                                "⚠️ LƯU Ý: correctAnswer phải là chuỗi y hệt một trong các phần tử trong mảng options. Chỉ trả về JSON thuần, không markdown.";
+                                "⚠️ LƯU Ý: correctAnswer phải là chuỗi y hệt một trong các phần tử trong mảng options.";
 
                 // Tạo Request Body chuẩn OpenAI/Groq
                 Map<String, Object> requestBodyMap = new HashMap<>();
@@ -202,19 +207,30 @@ public class GeminiService {
                                 try {
                                         @SuppressWarnings("unchecked")
                                         Map<String, Object> result = gson.fromJson(cleanJson, Map.class);
+
+                                        // --- LOGIC THỜI GIAN THEO ĐỘ KHÓ ---
+                                        result.put("timeLimit", timeLimit); // Inject calculated limit
+                                        // ------------------------------------
+
                                         return result;
                                 } catch (Exception e) {
                                         System.err.println("Lỗi Parse Groq JSON: " + e.getMessage());
-                                        return getFallbackQuestion(keyMap);
+                                        return createFallbackWithTime(keyMap, timeLimit);
                                 }
                         } else {
-                                return getFallbackQuestion(keyMap);
+                                return createFallbackWithTime(keyMap, timeLimit);
                         }
                 } catch (Exception e) {
                         e.printStackTrace();
                         System.err.println("Lỗi gọi API Groq: " + e.getMessage());
-                        return getFallbackQuestion(keyMap);
+                        return createFallbackWithTime(keyMap, timeLimit);
                 }
+        }
+
+        private Map<String, Object> createFallbackWithTime(String topicKey, int timeLimit) {
+                Map<String, Object> fallback = new HashMap<>(getFallbackQuestion(topicKey));
+                fallback.put("timeLimit", timeLimit);
+                return fallback;
         }
 
         private Map<String, Object> getFallbackQuestion(String topicKey) {

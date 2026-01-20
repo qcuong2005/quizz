@@ -196,8 +196,6 @@ function RoomWaiting() {
                     </div>
                 )}
 
-
-
                 <div className="waiting-actions">
                     {isHost ? (
                         <>

@@ -79,6 +79,7 @@ public class AuthController {
                 // Fetch full user to get stats
                 User user = userRepository.findByUsername(req.getUsername()).orElse(null);
                 if (user != null) {
+                    response.put("id", user.getId()); // Add ID for WebSocket topic
                     response.put("totalScore", user.getTotalScore());
                     response.put("streak", user.getStreak());
                     response.put("gamesPlayed", user.getGamesPlayed());
@@ -131,6 +132,7 @@ public class AuthController {
 
             // 4️⃣ Chuẩn bị dữ liệu trả về
             Map<String, Object> response = new HashMap<>();
+            response.put("id", user.getId()); // Add ID
             response.put("username", user.getUsername());
             response.put("fullName", user.getFullName());
             response.put("role", user.getRole());

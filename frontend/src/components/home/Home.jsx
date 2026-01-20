@@ -107,10 +107,7 @@ const Home = () => {
                             {t.icon}
                         </button>
                     ))}
-                    <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '0 4px' }}></div>
-                    <div title="Tự động theo mùa" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', color: 'rgba(255,255,255,0.7)' }}>
-                        <Sparkles size={16} />
-                    </div>
+
                 </div>
 
                 {/* Hero Section - Redesigned */}
@@ -118,13 +115,16 @@ const Home = () => {
                     <div className="hero-content">
                         {/* Left Column: Text & CTA */}
                         <div className="hero-text">
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '6px 16px', borderRadius: '20px', marginBottom: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <Sparkles size={16} color="#FFD700" />
-                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#FFD700' }}>Phiên bản Pro 2.0</span>
-                            </div>
+
                             <h1 className="hero-title">
                                 Chinh phục <br />
-                                <span style={{ fontSize: '0.8em', opacity: 0.9 }}>Tri thức vô tận</span>
+                                <span style={{
+                                    fontSize: '0.8em',
+                                    background: 'linear-gradient(135deg, #fff 0%, var(--accent-cyan) 50%, var(--accent-pink) 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+                                }}>Tri thức vô tận</span>
                             </h1>
                             <p className="hero-subtitle">
                                 "Không có tài sản nào quý giá hơn trí tuệ, không có vinh quang nào lớn hơn học vấn."
@@ -147,10 +147,10 @@ const Home = () => {
                             <div className="stats-card">
                                 <div className="stats-header">
                                     <div className="stats-avatar">
-                                        {user ? user.username.charAt(0).toUpperCase() : 'G'}
+                                        {user ? (user.fullName || user.username).charAt(0).toUpperCase() : 'G'}
                                     </div>
                                     <div className="stats-info">
-                                        <h2>{user ? user.username : 'Guest Player'}</h2>
+                                        <h2>{user ? (user.fullName || user.username) : 'Guest Player'}</h2>
                                         <span className="stats-badge">{user?.rankName || 'Học viên mới'}</span>
                                     </div>
                                 </div>

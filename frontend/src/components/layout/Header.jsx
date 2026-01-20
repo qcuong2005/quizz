@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout } from '../../services/authService';
 import '../../styles/GlobalStyles.css';
-
 const Header = () => {
     const user = getCurrentUser();
     const navigate = useNavigate();
@@ -31,8 +30,11 @@ const Header = () => {
                                 gap: '8px',
                                 color: 'var(--text-secondary)'
                             }}>
-                                👋 Xin chào, <strong style={{ color: 'var(--accent-cyan)' }}>{user.username}</strong>
+                                👋 Xin chào, <strong style={{ color: 'var(--accent-cyan)' }}>{user.fullName || user.username}</strong>
                             </span>
+                            <Link to="/friends" className="btn btn-ghost" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
+                                👥 Bạn bè
+                            </Link>
                             <button
                                 onClick={handleLogout}
                                 className="btn btn-ghost"

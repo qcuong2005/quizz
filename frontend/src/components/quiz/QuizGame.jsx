@@ -63,13 +63,17 @@ const QuizGame = () => {
     const [question, setQuestion] = useState(null);
     const [loading, setLoading] = useState(true);
     const [result, setResult] = useState(null);
-    const [score, setScore] = useState(user?.totalScore || 0);
+    const [score, setScore] = useState(isMultiplayer ? 0 : (user?.totalScore || 0));
+
     const [timeLeft, setTimeLeft] = useState(15);
+    const [sessionHistory, setSessionHistory] = useState([]); // Store Q&A history
+    const [showReviewBoard, setShowReviewBoard] = useState(false); // Toggle Review UI
 
     // NEW: Suspense Mode States
     const [showResult, setShowResult] = useState(false);
     const [hasSubmitted, setHasSubmitted] = useState(false);
-    const [roundLeaderboard, setRoundLeaderboard] = useState(null); // New: For MP Leaderboard
+    const [selectedOption, setSelectedOption] = useState(null); // NEW: Track selected option
+    const [roundLeaderboard, setRoundLeaderboard] = useState(null);
 
     // NEW: Fetch fresh score on mount
     useEffect(() => {
@@ -83,8 +87,12 @@ const QuizGame = () => {
         }
     }, []);
 
-    // WebSocket Client Ref
     const stompClientRef = useRef(null);
+    const questionRef = useRef(null); // Ref to access current question in callbacks
+
+    useEffect(() => {
+        questionRef.current = question;
+    }, [question]);
 
     // Refresh user data when result is shown
     useEffect(() => {
@@ -128,11 +136,13 @@ const QuizGame = () => {
                         if (data.type === 'NEW_QUESTION') {
                             setQuestion(data);
                             setLoading(false);
-                            setTimeLeft(15);
+                            setTimeLeft(45);
                             setResult(null);
+                            setShowResult(false);
                             setShowResult(false);
                             setHasSubmitted(false);
                             setRoundLeaderboard(null);
+                            setSelectedOption(null); // Reset selection
                         } else if (data.type === 'PLAYER_SUBMITTED') {
                             // Optional: Show "User X has answered" toast
                             console.log(`User ${data.username} submitted`);
@@ -158,12 +168,30 @@ const QuizGame = () => {
                                 correctAnswer: data.correctAnswer,
                                 totalScore: data.totalScore // Sync total score
                             });
-                            // Update local running score if provided, else cumulative
+
+                            // Update local running score
                             if (data.totalScore !== undefined) {
                                 setScore(data.totalScore);
                             } else if (data.scoreAdded > 0) {
                                 setScore(prev => prev + data.scoreAdded);
                             }
+
+                            // Add to history
+                            const currentQ = questionRef.current;
+                            if (currentQ) {
+                                setSessionHistory(prev => [
+                                    ...prev,
+                                    {
+                                        question: currentQ,
+                                        userAnswer: data.userAnswer || "TIMEOUT",
+                                        correctAnswer: data.correctAnswer,
+                                        isCorrect: data.isCorrect,
+                                        explanation: currentQ.explanation,
+                                        resultMessage: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? "Đúng" : "Sai")
+                                    }
+                                ]);
+                            }
+
                             setShowResult(true);
                         }
                     });
@@ -183,10 +211,11 @@ const QuizGame = () => {
                             }
                             setQuestion(receivedQuestion);
                             setLoading(false);
-                            setTimeLeft(15);
+                            setTimeLeft(45); // Fixed time limit
                             setResult(null);
                             setShowResult(false);
                             setHasSubmitted(false);
+                            setSelectedOption(null); // Reset selection
                         } catch (e) {
                             setLoading(false);
                             alert("Lỗi khi xử lý câu hỏi từ AI.");
@@ -199,6 +228,22 @@ const QuizGame = () => {
                             setResult(resultData);
                             if (resultData.score > 0) {
                                 setScore(prev => prev + resultData.score);
+                            }
+
+                            // Add to history
+                            const currentQ = questionRef.current;
+                            if (currentQ) {
+                                setSessionHistory(prev => [
+                                    ...prev,
+                                    {
+                                        question: currentQ,
+                                        userAnswer: resultData.userAnswer || (timeLeftRef.current <= 0 ? "TIMEOUT" : "UNKNOWN"),
+                                        correctAnswer: resultData.correctAnswer,
+                                        isCorrect: resultData.isCorrect,
+                                        explanation: currentQ.explanation,
+                                        resultMessage: resultData.message
+                                    }
+                                ]);
                             }
                         }
                     });
@@ -300,6 +345,7 @@ const QuizGame = () => {
         setHasSubmitted(false);
         setShowResult(false);
         setRoundLeaderboard(null);
+        setSelectedOption(null); // Reset selection
 
         if (client && client.active) {
             client.publish({
@@ -319,6 +365,7 @@ const QuizGame = () => {
             return;
         }
 
+        setSelectedOption(selectedAns); // Set selected option immediately
         setHasSubmitted(true); // Lock inputs immediately
 
         const payload = {
@@ -394,14 +441,19 @@ const QuizGame = () => {
                 {/* Back Button */}
                 <button
                     onClick={async () => {
-                        await refreshUserData();
-                        navigate('/');
+                        // If we have history, show proper review board, else just exit
+                        if (sessionHistory.length > 0) {
+                            setShowReviewBoard(true);
+                        } else {
+                            await refreshUserData();
+                            navigate('/');
+                        }
                     }}
                     className="exit-btn"
                     onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
                     onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
                 >
-                    <span>🏠</span> Exit
+                    <span>🏠</span> Thoát
                 </button>
 
                 {/* Score & Streak */}
@@ -424,7 +476,7 @@ const QuizGame = () => {
                 {/* Timer Bar */}
                 <div className="timer-container">
                     <div className="timer-labels">
-                        <span>Time Left</span>
+                        <span>Thời gian còn lại</span>
                         <span style={{ color: timeLeft <= 5 ? '#ff4b2b' : 'white' }}>{timeLeft}s</span>
                     </div>
 
@@ -434,7 +486,7 @@ const QuizGame = () => {
                             onClick={handleSkip}
                             className="skip-btn"
                         >
-                            ⏩ SKIP
+                            ⏩ BỎ QUA
                         </button>
                     )}
 
@@ -442,7 +494,7 @@ const QuizGame = () => {
                         <div
                             className="timer-fill"
                             style={{
-                                width: `${(timeLeft / 15) * 100}%`,
+                                width: `${(timeLeft / 45) * 100}%`,
                                 background: timeLeft <= 5 ? 'var(--btn-red)' : timeLeft <= 10 ? 'var(--btn-yellow)' : 'var(--btn-green)'
                             }}
                         ></div>
@@ -455,7 +507,7 @@ const QuizGame = () => {
                     {loading ? (
                         <div className="glass-card" style={{ padding: '60px', textAlign: 'center', animation: 'pulse 1.5s infinite' }}>
                             <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
-                            <h2 style={{ color: 'var(--text-secondary)' }}>Generating Question... 🤖</h2>
+                            <h2 style={{ color: 'var(--text-secondary)' }}>Đang tạo câu hỏi... 🤖</h2>
                         </div>
                     ) : question ? (
                         <>
@@ -473,7 +525,7 @@ const QuizGame = () => {
                                         return <div key={idx} style={{ opacity: 0 }}></div>;
                                     }
 
-                                    let specialClass = '';
+                                    let specialClass = 'answer-option';
                                     let btnStyle = {};
 
                                     if (showResult && result) {
@@ -499,12 +551,18 @@ const QuizGame = () => {
                                         }
                                     } else {
                                         if (hasSubmitted) {
-                                            // Actively dim if waiting
-                                            btnStyle.opacity = '0.6';
+                                            if (opt === selectedOption) {
+                                                // Keep selected option highly visible and highlighted
+                                                btnStyle.opacity = '1';
+                                                btnStyle.background = 'rgba(0, 212, 255, 0.2)'; // Light cyan tint
+                                                btnStyle.borderColor = 'var(--accent-cyan)';
+                                                btnStyle.boxShadow = '0 0 10px rgba(0, 212, 255, 0.3)';
+                                            } else {
+                                                // Dim others but keep visible enough to read
+                                                btnStyle.opacity = '0.5';
+                                                btnStyle.borderColor = 'rgba(255,255,255,0.1)';
+                                            }
                                             btnStyle.cursor = 'wait';
-                                            btnStyle.borderColor = 'rgba(255,255,255,0.05)';
-                                        } else {
-                                            specialClass = 'answer-option';
                                         }
                                     }
 
@@ -611,7 +669,79 @@ const QuizGame = () => {
                     )}
                 </div>
             </div>
-        </div >
+
+            {/* REVIEW BOARD OVERLAY */}
+            {showReviewBoard && (
+                <div className="review-board-overlay" style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.95)', zIndex: 2000,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '20px', overflowY: 'auto'
+                }}>
+                    <h1 style={{ color: 'white', marginBottom: '20px', textShadow: '0 0 10px #00d4ff' }}>📝 Tổng Kết & Ôn Tập</h1>
+
+                    <div style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '100px' }}>
+                        {sessionHistory.map((item, idx) => (
+                            <div key={idx} className="glass-card" style={{ padding: '20px', borderLeft: item.isCorrect ? '5px solid #00ff88' : '5px solid #ff416c' }}>
+                                <h3 style={{ marginBottom: '15px', fontSize: '1.1rem' }}>
+                                    <span style={{ opacity: 0.7 }}>Câu {idx + 1}:</span> <RenderWithMath text={item.question.question} />
+                                </h3>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+                                    <div style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Bạn chọn:</div>
+                                        <div style={{ color: item.isCorrect ? '#00ff88' : '#ff416c', fontWeight: 'bold' }}>
+                                            <RenderWithMath text={item.userAnswer} />
+                                        </div>
+                                    </div>
+                                    {!item.isCorrect && (
+                                        <div style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Đáp án đúng:</div>
+                                            <div style={{ color: '#00ff88', fontWeight: 'bold' }}>
+                                                <RenderWithMath text={item.correctAnswer} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {item.explanation && (
+                                    <div style={{ background: 'rgba(255, 215, 0, 0.1)', padding: '15px', borderRadius: '8px', border: '1px dashed rgba(255, 215, 0, 0.3)' }}>
+                                        <strong style={{ color: '#ffd700', display: 'block', marginBottom: '5px' }}>💡 Giải thích:</strong>
+                                        <span style={{ fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                            <RenderWithMath text={item.explanation} />
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div style={{
+                        position: 'fixed', bottom: 0, left: 0, width: '100%',
+                        padding: '20px', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)',
+                        display: 'flex', justifyContent: 'center', gap: '20px'
+                    }}>
+                        <button
+                            className="btn-secondary"
+                            style={{ padding: '12px 30px', fontSize: '1.1rem' }}
+                            onClick={() => setShowReviewBoard(false)}
+                        >
+                            🔙 Tiếp tục chơi
+                        </button>
+                        <button
+                            className="btn-primary"
+                            style={{ padding: '12px 30px', fontSize: '1.1rem' }}
+                            onClick={async () => {
+                                await refreshUserData();
+                                navigate('/');
+                            }}
+                        >
+                            🏠 Về Trang Chủ
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
