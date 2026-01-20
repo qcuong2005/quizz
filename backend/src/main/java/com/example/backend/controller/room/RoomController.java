@@ -6,10 +6,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.backend.dto.room.AddCustomQuestionsRequest;
 import com.example.backend.entity.room.Room;
 import com.example.backend.service.room.RoomService;
 
@@ -59,6 +61,36 @@ public class RoomController {
             messagingTemplate.convertAndSend("/topic/room/" + roomId, room);
             return ResponseEntity.ok(room);
         } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // ... code cũ
+
+    @PostMapping("/add-questions")
+    public ResponseEntity<?> addCustomQuestions(
+            @RequestBody AddCustomQuestionsRequest request, // Spring sẽ tự map JSON vào đây nhờ import đúng
+            Principal principal) {
+
+        if (principal == null)
+            return ResponseEntity.status(403).body("Chưa đăng nhập!");
+
+        // Debug nhanh để kiểm tra
+        System.out.println("DEBUG Request: " + request);
+        if (request != null) {
+            System.out.println("DEBUG Questions: " + request.getQuestions());
+        }
+
+        if (request.getQuestions() == null || request.getQuestions().isEmpty()) {
+            return ResponseEntity.badRequest().body("Danh sách câu hỏi không được trống!");
+        }
+
+        try {
+            Room updatedRoom = roomService.addCustomQuestionsToRoom(request, principal.getName());
+            messagingTemplate.convertAndSend("/topic/room/" + request.getRoomId(), updatedRoom);
+            return ResponseEntity.ok(updatedRoom);
+        } catch (Exception e) {
+            e.printStackTrace(); // In lỗi ra console để dễ debug
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
