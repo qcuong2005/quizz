@@ -15,4 +15,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByTotalScoreGreaterThan(long totalScore);
 
     List<User> findTop10ByOrderByTotalScoreDesc();
+
+    // Search users by username (case-insensitive, partial match)
+    List<User> findByUsernameContainingIgnoreCase(String username);
 }
