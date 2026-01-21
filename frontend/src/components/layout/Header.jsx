@@ -66,6 +66,9 @@ const Header = () => {
                             }}>
                                 👋 Xin chào, <strong style={{ color: 'var(--accent-cyan)' }}>{user.fullName || user.username}</strong>
                             </span>
+                            <Link to="/forum" className="btn btn-ghost" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
+                                💬 Diễn đàn
+                            </Link>
                             <Link to="/friends" className="btn btn-ghost" style={{ padding: '8px 16px', fontSize: '0.9rem', position: 'relative' }}>
                                 👥 Bạn bè
                                 {pendingCount > 0 && (
@@ -145,6 +148,7 @@ const Header = () => {
                         </>
                     ) : (
                         <>
+                            <Link to="/forum" className="nav-link" style={{ marginRight: '20px' }}>💬 Diễn đàn</Link>
                             <Link to="/login" className="nav-link">Đăng nhập</Link>
                             <Link to="/register" className="btn btn-primary" style={{ padding: '8px 20px' }}>
                                 Đăng ký

@@ -46,6 +46,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/rooms/join-spectator").permitAll() // ✅ Cho phép Khán giả vào xem không
                                                                                   // cần Login
                         .requestMatchers("/uploads/**").permitAll() // ✅ Cho phép truy cập file đã upload
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/forum/**").permitAll() // ✅ Cho
+                                                                                                               // phép
+                                                                                                               // xem
+                                                                                                               // Forum
+                                                                                                               // công
+                                                                                                               // khai
 
                         // 2. Các API khác vẫn cần đăng nhập mới gọi được
                         .anyRequest().authenticated())

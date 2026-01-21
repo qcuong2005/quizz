@@ -34,3 +34,9 @@ build/
 
 ### Application ###
 uploads/
+*.log
+
+### Environment ###
+.env
+application-local.properties
+application-local.yml

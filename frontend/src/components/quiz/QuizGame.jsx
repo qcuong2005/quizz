@@ -8,37 +8,7 @@ import './QuizGame.css';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
-// Helper to render text with LaTeX
-const RenderWithMath = ({ text }) => {
-    if (!text) return null;
-
-    // Pattern to detect LaTeX: 
-    // 1. Block: $$...$$ or \[...\]
-    // 2. Inline: $...$ or \(...\)
-    const parts = text.split(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|(?<!\\)\$[\s\S]*?(?<!\\)\$)/g);
-
-    return (
-        <span>
-            {parts.map((part, index) => {
-                if (part.startsWith('$$') && part.endsWith('$$')) {
-                    const math = part.slice(2, -2);
-                    return <BlockMath key={index} math={math} />;
-                } else if (part.startsWith('\\[') && part.endsWith('\\]')) {
-                    const math = part.slice(2, -2);
-                    return <BlockMath key={index} math={math} />;
-                } else if (part.startsWith('\\(') && part.endsWith('\\)')) {
-                    const math = part.slice(2, -2);
-                    return <InlineMath key={index} math={math} />;
-                } else if (part.startsWith('$') && part.endsWith('$')) {
-                    const math = part.slice(1, -1);
-                    return <InlineMath key={index} math={math} />;
-                } else {
-                    return <span key={index}>{part}</span>;
-                }
-            })}
-        </span>
-    );
-};
+import RenderWithMath from '../common/RenderWithMath';
 
 const QuizGame = () => {
     const [searchParams] = useSearchParams();
@@ -710,8 +680,27 @@ const QuizGame = () => {
                                         <span style={{ fontSize: '0.95rem', lineHeight: '1.5' }}>
                                             <RenderWithMath text={item.explanation} />
                                         </span>
+
                                     </div>
                                 )}
+
+                                {/* SHARE BUTTON */}
+                                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'flex-end' }}>
+                                    <button
+                                        className="btn btn-ghost"
+                                        style={{ fontSize: '0.9rem', color: 'var(--accent-cyan)' }}
+                                        onClick={() => {
+                                            navigate('/forum/new', {
+                                                state: {
+                                                    initialTitle: `Msg: ${item.question.question.substring(0, 200)}${item.question.question.length > 200 ? '...' : ''}`,
+                                                    initialContent: `Mình vừa gặp câu hỏi này trong game, mọi người giải thích giúp mình với!\n\n**Câu hỏi:**\n${item.question.question}\n\n**Các đáp án:**\n${item.question.options.map(o => `- ${o}`).join('\n')}\n\n**Đáp án đúng:** ${item.correctAnswer}`
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        📤 Chia sẻ lên diễn đàn
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -740,8 +729,9 @@ const QuizGame = () => {
                         </button>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 };
 
