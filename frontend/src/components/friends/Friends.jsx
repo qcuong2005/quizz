@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useChat } from '../../context/ChatContext';
 import { getCurrentUser } from '../../services/authService';
 import {
     getFriends,
@@ -27,6 +28,7 @@ const Friends = () => {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [friendToDelete, setFriendToDelete] = useState(null);
     const navigate = useNavigate();
+    const { openChat } = useChat();
 
     useEffect(() => {
         const currentUser = getCurrentUser();
@@ -178,11 +180,25 @@ const Friends = () => {
                                 <span className="friend-username">@{friend.username}</span>
                             </div>
                             <button
+                                className="btn-icon"
+                                title="Nhắn tin"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openChat(friend);
+                                }}
+                                style={{ background: 'rgba(102, 126, 234, 0.2)', color: '#667eea', marginRight: '8px' }}
+                            >
+                                💬
+                            </button>
+                            <button
                                 className="btn-icon btn-danger"
-                                onClick={() => confirmRemoveFriend(friend.id, friend.fullName || friend.username)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    confirmRemoveFriend(friend.id, friend.fullName || friend.username);
+                                }}
                                 title="Xóa bạn"
                             >
-                                <UserMinus size={18} />
+                                <UserMinus size={20} />
                             </button>
                         </div>
                         <div className="friend-stats">

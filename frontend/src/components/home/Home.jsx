@@ -6,11 +6,10 @@ import '../../styles/GlobalStyles.css';
 import { Calculator, Atom, BookOpen, Landmark, Globe, Languages, BrainCircuit, Scroll, Sun, CloudRain, Leaf, Snowflake, Sparkles, Search, Trophy, Flame, Star, Target } from 'lucide-react';
 
 const Home = () => {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(getCurrentUser());
     const navigate = useNavigate();
-    const [theme, setTheme] = useState('');
+    const [theme, setTheme] = useState('default');
     const [searchTerm, setSearchTerm] = useState('');
-
     // Detect season
     useEffect(() => {
         const currentUser = getCurrentUser();
@@ -78,177 +77,188 @@ const Home = () => {
             {/* Header */}
             <Header />
 
-            {/* Main Content */}
-            <main className="home-page" style={{ position: 'relative', zIndex: 1 }}>
+            {/* Main Layout with Sidebar */}
+            <div style={{ display: 'flex', paddingTop: '80px', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
 
-                {/* Theme Selector - Positioned below fixed header (which is ~80px) */}
-                <div style={{ position: 'absolute', top: '100px', right: '20px', zIndex: 100, display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '30px', backdropFilter: 'blur(10px)' }}>
-                    {themes.map((t) => (
-                        <button
-                            key={t.id}
-                            onClick={() => setTheme(t.id)}
-                            title={`Giao diện Mùa ${t.name}`}
-                            style={{
-                                background: theme === t.id ? t.bg : 'transparent',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '36px',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s ease',
-                                boxShadow: theme === t.id ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
-                                transform: theme === t.id ? 'scale(1.1)' : 'scale(1)'
-                            }}
-                        >
-                            {t.icon}
-                        </button>
-                    ))}
+                {/* Main Content Area */}
+                <main
+                    className="home-main-content"
+                    style={{
+                        flex: 1,
+                        paddingBottom: '40px',
+                        minWidth: 0,
+                        transition: 'padding-right 0.3s ease'
+                    }}
+                >
 
-                </div>
-
-                {/* Hero Section - Redesigned */}
-                <section className="hero-section">
-                    <div className="hero-content">
-                        {/* Left Column: Text & CTA */}
-                        <div className="hero-text">
-
-                            <h1 className="hero-title">
-                                Chinh phục <br />
-                                <span style={{
-                                    fontSize: '0.8em',
-                                    background: 'linear-gradient(135deg, #fff 0%, var(--accent-cyan) 50%, var(--accent-pink) 100%)',
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
-                                }}>Tri thức vô tận</span>
-                            </h1>
-                            <p className="hero-subtitle">
-                                "Không có tài sản nào quý giá hơn trí tuệ, không có vinh quang nào lớn hơn học vấn."
-                            </p>
-                            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                <button className="btn btn-primary" onClick={() => document.getElementById('topics-grid')?.scrollIntoView({ behavior: 'smooth' })}>
-                                    Chơi ngay <Flame size={20} />
-                                </button>
-                                <button className="btn btn-secondary" onClick={() => navigate('/room')}>
-                                    🎮 Multiplayer
-                                </button>
-                                <button className="btn btn-ghost" onClick={() => navigate('/leaderboard')}>
-                                    Bảng xếp hạng <Trophy size={18} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Right Column: Player Stats Card */}
-                        <div className="hero-stats">
-                            <div className="stats-card">
-                                <div className="stats-header">
-                                    <div className="stats-avatar">
-                                        {user ? (user.fullName || user.username).charAt(0).toUpperCase() : 'G'}
-                                    </div>
-                                    <div className="stats-info">
-                                        <h2>{user ? (user.fullName || user.username) : 'Guest Player'}</h2>
-                                        <span className="stats-badge">{user?.rankName || 'Học viên mới'}</span>
-                                    </div>
-                                </div>
-                                <div className="stats-grid">
-                                    <div className="stat-item">
-                                        <span className="stat-value" style={{ color: '#4facfe' }}>
-                                            {user?.totalScore?.toLocaleString() || 0}
-                                        </span>
-                                        <span className="stat-label">Tổng điểm</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <span className="stat-value" style={{ color: '#ff9a9e' }}>
-                                            {user?.streak || 0}
-                                        </span>
-                                        <span className="stat-label">Chuỗi thắng</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <span className="stat-value" style={{ color: '#f093fb' }}>
-                                            {user?.gamesPlayed || 0}
-                                        </span>
-                                        <span className="stat-label">Câu hỏi</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <span className="stat-value" style={{ color: '#ffd700' }}>
-                                            {user?.rank ? '#' + user.rank : '#---'}
-                                        </span>
-                                        <span className="stat-label">Xếp hạng</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Search Section */}
-                <div className="search-section">
-                    <div className="search-input-wrapper">
-                        <Search className="search-icon" size={24} />
-                        <input
-                            type="text"
-                            className="search-input"
-                            placeholder="Tìm kiếm chủ đề của bạn..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                <div className="topics-section" id="topics-grid">
-                    <h2 style={{ textAlign: 'center', marginBottom: '32px', fontSize: '2rem', fontWeight: 700 }}>
-                        ✨ Khám phá chủ đề
-                    </h2>
-                    <div className="topics-grid">
-                        {filteredTopics.map((topic, index) => (
-                            <div
-                                key={topic.name}
-                                className="topic-card"
-                                onClick={() => handleTopicClick(topic.name)}
+                    {/* Theme Selector - Repositioned inside main content relative */}
+                    <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100, display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '30px', backdropFilter: 'blur(10px)' }}>
+                        {themes.map((t) => (
+                            <button
+                                key={t.id}
+                                onClick={() => setTheme(t.id)}
+                                title={`Giao diện Mùa ${t.name}`}
                                 style={{
-                                    animationDelay: `${index * 0.05}s`,
-                                    '--card-gradient': `linear-gradient(135deg, var(--color-${index}), var(--color-${index}-dark))`
+                                    background: theme === t.id ? t.bg : 'transparent',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '36px',
+                                    height: '36px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: theme === t.id ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                                    transform: theme === t.id ? 'scale(1.1)' : 'scale(1)'
                                 }}
-                                data-color-index={index}
                             >
-                                <span className="topic-icon">{topic.icon}</span>
-                                <span className="topic-name">{topic.name}</span>
-                                <span className="topic-desc" style={{ display: 'block', fontSize: '0.85rem', opacity: 0.8, marginTop: '5px' }}>
-                                    {topic.desc}
-                                </span>
-                            </div>
+                                {t.icon}
+                            </button>
                         ))}
                     </div>
-                </div>
-                {user ? (
-                    <>
-                        {/* User Welcome and old Topics Grid removed */}
-                    </>
-                ) : (
-                    /* Guest CTA */
-                    <div className="guest-cta glass-card">
-                        <p>
-                            🏆 Đăng nhập để lưu điểm số và tham gia bảng xếp hạng với người chơi khác!
-                        </p>
-                        <div className="cta-buttons">
-                            <Link to="/login">
-                                <button className="btn btn-primary">
-                                    🚀 Đăng Nhập
-                                </button>
-                            </Link>
-                            <Link to="/register">
-                                <button className="btn btn-secondary">
-                                    ✨ Đăng Ký
-                                </button>
-                            </Link>
+
+                    {/* Hero Section - Redesigned */}
+                    <section className="hero-section">
+                        <div className="hero-content">
+                            {/* Left Column: Text & CTA */}
+                            <div className="hero-text">
+
+                                <h1 className="hero-title">
+                                    Chinh phục <br />
+                                    <span style={{
+                                        fontSize: '0.8em',
+                                        background: 'linear-gradient(135deg, #fff 0%, var(--accent-cyan) 50%, var(--accent-pink) 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+                                    }}>Tri thức vô tận</span>
+                                </h1>
+                                <p className="hero-subtitle">
+                                    "Không có tài sản nào quý giá hơn trí tuệ, không có vinh quang nào lớn hơn học vấn."
+                                </p>
+                                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    <button className="btn btn-primary" onClick={() => document.getElementById('topics-grid')?.scrollIntoView({ behavior: 'smooth' })}>
+                                        Chơi ngay <Flame size={20} />
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => navigate('/room')}>
+                                        🎮 Multiplayer
+                                    </button>
+                                    <button className="btn btn-ghost" onClick={() => navigate('/leaderboard')}>
+                                        Bảng xếp hạng <Trophy size={18} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Right Column: Player Stats Card */}
+                            <div className="hero-stats">
+                                <div className="stats-card">
+                                    <div className="stats-header">
+                                        <div className="stats-avatar">
+                                            {user ? (user.fullName || user.username).charAt(0).toUpperCase() : 'G'}
+                                        </div>
+                                        <div className="stats-info">
+                                            <h2>{user ? (user.fullName || user.username) : 'Guest Player'}</h2>
+                                            <span className="stats-badge">{user?.rankName || 'Học viên mới'}</span>
+                                        </div>
+                                    </div>
+                                    <div className="stats-grid">
+                                        <div className="stat-item">
+                                            <span className="stat-value" style={{ color: '#4facfe' }}>
+                                                {user?.totalScore?.toLocaleString() || 0}
+                                            </span>
+                                            <span className="stat-label">Tổng điểm</span>
+                                        </div>
+                                        <div className="stat-item">
+                                            <span className="stat-value" style={{ color: '#ff9a9e' }}>
+                                                {user?.streak || 0}
+                                            </span>
+                                            <span className="stat-label">Chuỗi thắng</span>
+                                        </div>
+                                        <div className="stat-item">
+                                            <span className="stat-value" style={{ color: '#f093fb' }}>
+                                                {user?.gamesPlayed || 0}
+                                            </span>
+                                            <span className="stat-label">Câu hỏi</span>
+                                        </div>
+                                        <div className="stat-item">
+                                            <span className="stat-value" style={{ color: '#ffd700' }}>
+                                                {user?.rank ? '#' + user.rank : '#---'}
+                                            </span>
+                                            <span className="stat-label">Xếp hạng</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Search Section */}
+                    <div className="search-section">
+                        <div className="search-input-wrapper">
+                            <Search className="search-icon" size={24} />
+                            <input
+                                type="text"
+                                className="search-input"
+                                placeholder="Tìm kiếm chủ đề của bạn..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
                         </div>
                     </div>
-                )}
-            </main>
+
+                    <div className="topics-section" id="topics-grid">
+                        <h2 style={{ textAlign: 'center', marginBottom: '32px', fontSize: '2rem', fontWeight: 700 }}>
+                            ✨ Khám phá chủ đề
+                        </h2>
+                        <div className="topics-grid">
+                            {filteredTopics.map((topic, index) => (
+                                <div
+                                    key={topic.name}
+                                    className="topic-card"
+                                    onClick={() => handleTopicClick(topic.name)}
+                                    style={{
+                                        animationDelay: `${index * 0.05}s`,
+                                        '--card-gradient': `linear-gradient(135deg, var(--color-${index}), var(--color-${index}-dark))`
+                                    }}
+                                    data-color-index={index}
+                                >
+                                    <span className="topic-icon">{topic.icon}</span>
+                                    <span className="topic-name">{topic.name}</span>
+                                    <span className="topic-desc" style={{ display: 'block', fontSize: '0.85rem', opacity: 0.8, marginTop: '5px' }}>
+                                        {topic.desc}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {user ? (
+                        <>
+                            {/* User Welcome and old Topics Grid removed */}
+                        </>
+                    ) : (
+                        /* Guest CTA */
+                        <div className="guest-cta glass-card">
+                            <p>
+                                🏆 Đăng nhập để lưu điểm số và tham gia bảng xếp hạng với người chơi khác!
+                            </p>
+                            <div className="cta-buttons">
+                                <Link to="/login">
+                                    <button className="btn btn-primary">
+                                        🚀 Đăng Nhập
+                                    </button>
+                                </Link>
+                                <Link to="/register">
+                                    <button className="btn btn-secondary">
+                                        ✨ Đăng Ký
+                                    </button>
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </main>
+            </div>
         </div>
     );
 };

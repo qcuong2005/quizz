@@ -1,46 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import { getCurrentUser, logout } from '../../services/authService';
 import { getPendingRequests } from '../../services/friendService';
+import ChatListPopup from '../chat/ChatListPopup';
+import { useChat } from '../../context/ChatContext';
+import { MessageCircle } from 'lucide-react';
 import '../../styles/GlobalStyles.css';
 
 const Header = () => {
     const user = getCurrentUser();
     const navigate = useNavigate();
     const [pendingCount, setPendingCount] = useState(0);
+    const [showChatPopup, setShowChatPopup] = useState(false);
+    const chatPopupRef = useRef(null);
+    const { unreadCount } = useChat();
 
     useEffect(() => {
         if (user) {
             fetchPendingRequests();
-
-            // Connect to WebSocket for Online Status
-            const socket = new SockJS('http://localhost:8080/ws-quiz');
-            const client = new Client({
-                webSocketFactory: () => socket,
-                connectHeaders: {
-                    Authorization: `Bearer ${user.token}`
-                },
-                debug: (str) => {
-                    // console.log(str); 
-                },
-                onConnect: () => {
-                    console.log("Connected to WS (Online Status Active)");
-                },
-                onStompError: (frame) => {
-                    console.error('Broker reported error: ' + frame.headers['message']);
-                    console.error('Additional details: ' + frame.body);
-                }
-            });
-
-            client.activate();
-
-            return () => {
-                client.deactivate();
-            };
         }
-    }, [user?.username]); // Re-fetch when user changes
+    }, [user?.username]);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (chatPopupRef.current && !chatPopupRef.current.contains(e.target)) {
+                setShowChatPopup(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const fetchPendingRequests = async () => {
         try {
@@ -101,6 +90,51 @@ const Header = () => {
                                     </span>
                                 )}
                             </Link>
+
+                            {/* Chat Icon */}
+                            <div ref={chatPopupRef} style={{ position: 'relative' }}>
+                                <button
+                                    onClick={() => setShowChatPopup(!showChatPopup)}
+                                    className="btn btn-ghost"
+                                    style={{
+                                        padding: '8px 12px',
+                                        fontSize: '0.9rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        position: 'relative'
+                                    }}
+                                >
+                                    <MessageCircle size={18} />
+                                    Chat
+                                    {unreadCount > 0 && (
+                                        <span style={{
+                                            position: 'absolute',
+                                            top: '-5px',
+                                            right: '-5px',
+                                            background: '#ff4757',
+                                            color: 'white',
+                                            borderRadius: '50%',
+                                            width: '18px',
+                                            height: '18px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 'bold',
+                                            boxShadow: '0 2px 5px rgba(255, 71, 87, 0.4)',
+                                            border: '1px solid rgba(255,255,255,0.2)'
+                                        }}>
+                                            {unreadCount}
+                                        </span>
+                                    )}
+                                </button>
+                                {showChatPopup && (
+                                    <ChatListPopup onClose={() => setShowChatPopup(false)} />
+                                )}
+                            </div>
+
+
                             <button
                                 onClick={handleLogout}
                                 className="btn btn-ghost"
