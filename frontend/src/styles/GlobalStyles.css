@@ -498,7 +498,6 @@ input {
     font-size: 1rem;
     transition: var(--transition-normal);
     position: relative;
-    overflow: hidden;
 }
 
 .btn-primary {

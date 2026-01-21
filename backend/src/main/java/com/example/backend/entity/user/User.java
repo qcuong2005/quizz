@@ -36,6 +36,9 @@ public class User {
     @Column(columnDefinition = "int default 0")
     private int gamesPlayed = 0;
 
+    @Column(columnDefinition = "boolean default false")
+    private boolean isOnline = false;
+
     // 1. Constructor mặc định (Bắt buộc cho Hibernate)
     public User() {
     }
@@ -112,5 +115,13 @@ public class User {
 
     public void setGamesPlayed(int gamesPlayed) {
         this.gamesPlayed = gamesPlayed;
+    }
+
+    public boolean isOnline() {
+        return isOnline;
+    }
+
+    public void setOnline(boolean online) {
+        isOnline = online;
     }
 }
