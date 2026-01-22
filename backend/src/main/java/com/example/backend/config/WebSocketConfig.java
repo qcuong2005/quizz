@@ -22,13 +22,13 @@ import com.example.backend.security.UserInfoService;
 
 @Configuration
 @EnableWebSocketMessageBroker
-@Order(Ordered.HIGHEST_PRECEDENCE + 99) // Chạy sau các filter bảo mật hệ thống
+@Order(Ordered.HIGHEST_PRECEDENCE + 99) // Ưu tiên chạy sau các cấu hình bảo mật cốt lõi
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtUtils jwtUtils;
     private final UserInfoService userInfoService;
 
-    // Inject 2 cái này để kiểm tra Token và load User
+    // Inject các service cần thiết để validate Token
     public WebSocketConfig(JwtUtils jwtUtils, UserInfoService userInfoService) {
         this.jwtUtils = jwtUtils;
         this.userInfoService = userInfoService;
@@ -36,16 +36,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
+        // Kích hoạt các kênh topic (public) và queue (private)
         config.enableSimpleBroker("/topic", "/queue");
+        // Tiền tố cho các message từ Client gửi lên Server
         config.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws-quiz").setAllowedOriginPatterns("*").withSockJS();
+        // Endpoint chính để JS kết nối vào
+        registry.addEndpoint("/ws-quiz")
+                .setAllowedOriginPatterns("*") // Cho phép mọi nguồn (Dev mode)
+                .withSockJS(); // Hỗ trợ fallback SockJS
     }
 
-    // --- PHẦN QUAN TRỌNG: BỘ LỌC KIỂM TRA ĐĂNG NHẬP ---
+    // --- BỘ LỌC KIỂM TRA ĐĂNG NHẬP (Intercept CONNECT) ---
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
@@ -53,10 +58,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-                // Chỉ kiểm tra khi client gửi lệnh CONNECT
-                if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+                // Chỉ kiểm tra khi Client gửi lệnh CONNECT
+if (StompCommand.CONNECT.equals(accessor.getCommand())) {
 
-                    // 1. Lấy header "Authorization" từ gói tin
+                    // 1. Lấy header "Authorization" từ gói tin STOMP
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
 
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -65,25 +70,28 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             // 2. Validate Token
                             if (jwtUtils.validateToken(token)) {
                                 String username = jwtUtils.extractUsername(token);
+
+                                // Load thông tin User từ DB
                                 UserDetails userDetails = userInfoService.loadUserByUsername(username);
 
-                                // 3. Tạo đối tượng Authentication
+                                // 3. Tạo Authentication Token
                                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                                         userDetails, null, userDetails.getAuthorities());
 
-                                // 4. Gán User vào phiên làm việc của Socket
+                                // 4. Gán User vào phiên WebSocket
                                 accessor.setUser(auth);
-                                return message; // Cho phép đi tiếp
+
+                                System.out.println("✅ WebSocket Auth: User " + username + " connected.");
                             }
                         } catch (Exception e) {
-                            // Lỗi Token
+                            System.err.println("❌ WebSocket Auth Error: Token không hợp lệ. Kết nối như Guest.");
                         }
+                    } else {
+                        System.out.println("⚠️ WebSocket: Không có Token. Kết nối như Guest (Khán giả).");
                     }
-                    // Nếu không có Token hoặc Token sai -> Vẫn cho phép vào kết nối nhưng Principal
-                    // sẽ là null
-                    // Điều này cho phép Guest (Khán giả) tham gia mà không cần Login
-                    return message;
                 }
+
+                // Luôn return message để cho phép kết nối (kể cả Guest)
                 return message;
             }
         });
