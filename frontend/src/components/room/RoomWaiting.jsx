@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import RoomChat from '../chat/RoomChat';
 import './RoomWaiting.css';
 
 const AVAILABLE_TOPICS = [
@@ -17,6 +18,7 @@ function RoomWaiting() {
     const [room, setRoom] = useState(location.state?.room || null);
     const [isHost, setIsHost] = useState(location.state?.isHost || false);
     const [stompClient, setStompClient] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
     const [copied, setCopied] = useState(false);
 
     // Topic state
@@ -46,6 +48,7 @@ function RoomWaiting() {
             reconnectDelay: 5000,
             onConnect: () => {
                 console.log('WebSocket connected');
+                setIsConnected(true);
 
                 // Subscribe to room updates
                 client.subscribe(`/topic/room/${roomId}`, (message) => {
@@ -57,7 +60,7 @@ function RoomWaiting() {
                             state: {
                                 roomId: data.roomId,
                                 isMultiplayer: true,
-                                isHost: isHost
+                                isHost: isHost // Note: isHost stable from initial state
                             }
                         });
                     } else {
@@ -82,7 +85,7 @@ function RoomWaiting() {
                 client.deactivate();
             }
         };
-    }, [roomId, room, navigate, isHost]);
+    }, [roomId, navigate]); // Removed 'room' and 'isHost' to prevent reconnection loops
 
     const copyRoomId = () => {
         navigator.clipboard.writeText(roomId);
@@ -129,100 +132,113 @@ function RoomWaiting() {
     return (
         <div className="room-waiting">
 
+
             <div className="waiting-container">
-                <div className="room-header">
-                    <h1 className="room-name">{room.roomName}</h1>
-                    <div className="room-id-container">
-                        <span className="room-id-label">Mã phòng:</span>
-                        <div className="room-id-box" onClick={copyRoomId}>
-                            <span className="room-id-value">{roomId}</span>
-                            <button className="copy-btn">
-                                {copied ? '✓ Đã sao chép' : '📋 Sao chép'}
-                            </button>
+                <div className="room-left-column">
+                    <div className="room-header">
+                        <h1 className="room-name">{room.roomName}</h1>
+                        <div className="room-id-container">
+                            <span className="room-id-label">Mã phòng:</span>
+                            <div className="room-id-box" onClick={copyRoomId}>
+                                <span className="room-id-value">{roomId}</span>
+                                <button className="copy-btn">
+                                    {copied ? '✓ Đã sao chép' : '📋 Sao chép'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="players-section">
-                    <h2 className="players-title">
-                        Người chơi ({playerCount}/{room.capacity})
-                    </h2>
+                    <div className="players-section">
+                        <h2 className="players-title">
+                            Người chơi ({playerCount}/{room.capacity})
+                        </h2>
 
-                    <div className="players-grid">
-                        {room.players?.map((player, index) => (
-                            <div key={index} className="player-card">
-                                <div className="player-avatar">
-                                    {player.charAt(0).toUpperCase()}
+                        <div className="players-grid">
+                            {room.players?.map((player, index) => (
+                                <div key={index} className="player-card">
+                                    <div className="player-avatar">
+                                        {player.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="player-info">
+                                        <span className="player-name">{player}</span>
+                                        {player === room.host && (
+                                            <span className="host-badge">👑 Chủ phòng</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="player-info">
-                                    <span className="player-name">{player}</span>
-                                    {player === room.host && (
-                                        <span className="host-badge">👑 Chủ phòng</span>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                            ))}
 
-                        {/* Empty slots */}
-                        {Array.from({ length: room.capacity - playerCount }).map((_, index) => (
-                            <div key={`empty-${index}`} className="player-card empty">
-                                <div className="player-avatar empty-avatar">?</div>
-                                <div className="player-info">
-                                    <span className="player-name">Đang chờ...</span>
+                            {/* Empty slots */}
+                            {Array.from({ length: room.capacity - playerCount }).map((_, index) => (
+                                <div key={`empty-${index}`} className="player-card empty">
+                                    <div className="player-avatar empty-avatar">?</div>
+                                    <div className="player-info">
+                                        <span className="player-name">Đang chờ...</span>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Topic Selection Section (Only for Host) */}
-                {isHost && (
-                    <div className="topic-selection-section">
-                        <h2 className="section-title">Chọn chủ đề câu hỏi</h2>
-                        <div className="topics-grid">
-                            {AVAILABLE_TOPICS.map((topic) => (
-                                <button
-                                    key={topic}
-                                    className={`topic-chip ${selectedTopics.includes(topic) ? 'selected' : ''}`}
-                                    onClick={() => handleToggleTopic(topic)}
-                                >
-                                    {topic}
-                                </button>
                             ))}
                         </div>
-                        {selectedTopics.length === 0 && (
-                            <p className="topic-warning">⚠️ Vui lòng chọn ít nhất 1 chủ đề để bắt đầu</p>
+                    </div>
+
+                    {/* Topic Selection Section (Only for Host) */}
+                    {isHost && (
+                        <div className="topic-selection-section">
+                            <h2 className="section-title">Chọn chủ đề câu hỏi</h2>
+                            <div className="topics-grid">
+                                {AVAILABLE_TOPICS.map((topic) => (
+                                    <button
+                                        key={topic}
+                                        className={`topic-chip ${selectedTopics.includes(topic) ? 'selected' : ''}`}
+                                        onClick={() => handleToggleTopic(topic)}
+                                    >
+                                        {topic}
+                                    </button>
+                                ))}
+                            </div>
+                            {selectedTopics.length === 0 && (
+                                <p className="topic-warning">⚠️ Vui lòng chọn ít nhất 1 chủ đề để bắt đầu</p>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="waiting-actions">
+                        {isHost ? (
+                            <>
+                                <button
+                                    className="start-btn"
+                                    onClick={handleStartGame}
+                                    disabled={!canStart}
+                                >
+                                    {canStart ? '🚀 Bắt Đầu Chơi' : `⏳ Chờ thêm ${2 - playerCount} người...`}
+                                </button>
+                                <button className="leave-btn" onClick={handleLeaveRoom}>
+                                    🚪 Hủy Phòng
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <div className="waiting-message">
+                                    ⏳ Đang chờ chủ phòng bắt đầu...
+                                </div>
+                                <button className="leave-btn" onClick={handleLeaveRoom}>
+                                    🚪 Rời Phòng
+                                </button>
+                            </>
                         )}
                     </div>
-                )}
-
-                <div className="waiting-actions">
-                    {isHost ? (
-                        <>
-                            <button
-                                className="start-btn"
-                                onClick={handleStartGame}
-                                disabled={!canStart}
-                            >
-                                {canStart ? '🚀 Bắt Đầu Chơi' : `⏳ Chờ thêm ${2 - playerCount} người...`}
-                            </button>
-                            <button className="leave-btn" onClick={handleLeaveRoom}>
-                                🚪 Hủy Phòng
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <div className="waiting-message">
-                                ⏳ Đang chờ chủ phòng bắt đầu...
-                            </div>
-                            <button className="leave-btn" onClick={handleLeaveRoom}>
-                                🚪 Rời Phòng
-                            </button>
-                        </>
-                    )}
                 </div>
-            </div >
-        </div >
+
+                <div className="room-right-column">
+                    <RoomChat
+                        roomId={roomId}
+                        currentUser={JSON.parse(localStorage.getItem("user") || "{}")}
+                        stompClient={stompClient}
+                        isConnected={isConnected}
+                    />
+                </div>
+            </div>
+        </div>
+
     );
 }
 

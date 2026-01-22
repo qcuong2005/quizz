@@ -12,16 +12,55 @@
 }
 
 .waiting-container {
-    max-width: 800px;
-    width: 100%;
+    max-width: 1200px;
+    /* Increased to fit chat */
+    width: 95%;
     background: var(--glass-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl);
-    padding: var(--spacing-2xl);
+    padding: var(--spacing-xl);
     box-shadow: var(--glass-shadow);
     animation: scaleIn 0.4s ease-out;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    /* 2/3 for main content, 1/3 for chat */
+    gap: var(--spacing-xl);
+    height: 80vh;
+    /* Fixed height for chat scroll */
+}
+
+/* Ensure header spans full width if needed, or stick to left col */
+.room-left-column {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.room-right-column {
+    height: 100%;
+}
+
+/* Scrollbar for left column */
+.room-left-column::-webkit-scrollbar {
+    width: 6px;
+}
+
+.room-left-column::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.room-left-column::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+/* Adjust header to fit in left column */
+.room-header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
 }
 
 /* ============================================
@@ -316,9 +355,26 @@
 /* ============================================
    RESPONSIVE
    ============================================ */
+@media (max-width: 1024px) {
+    .waiting-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
+        width: 100%;
+        border-radius: 0;
+        padding: var(--spacing-md);
+    }
+
+    .room-right-column {
+        height: 500px;
+        /* Fixed height for chat on mobile */
+        margin-top: var(--spacing-lg);
+    }
+}
+
 @media (max-width: 768px) {
     .waiting-container {
-        padding: var(--spacing-xl);
+        padding: var(--spacing-md);
     }
 
     .room-name {
