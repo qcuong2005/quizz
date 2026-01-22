@@ -1,73 +1,294 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Tin tức VnExpress - Đồng bộ và Bất đồng bộ</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 30px; background: #f9f9f9; }
-    h2 { color: #333; }
-    .section { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    ul { list-style: none; padding-left: 0; }
-    li { margin-bottom: 8px; }
-    a { text-decoration: none; color: #0077cc; }
-    a:hover { text-decoration: underline; }
-    small { color: #666; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Room: Chat & Questions</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f0f2f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* Header Input */
+        .config-box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; gap: 20px; align-items: flex-end; }
+        .form-group { flex: 1; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .token-input { background-color: #fff3cd; border-color: #ffeeba; }
+
+        /* Grid Layout */
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        
+        /* Box Style */
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: fit-content; }
+        h2 { margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 10px; color: #333; font-size: 1.2rem; }
+
+        /* CHAT CSS */
+        .chat-box { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #f9f9f9; margin-bottom: 10px; border-radius: 4px; }
+        .message { margin-bottom: 8px; padding: 8px; border-radius: 5px; max-width: 80%; font-size: 0.9rem; }
+        .msg-me { background-color: #d1e7dd; margin-left: auto; text-align: right; }
+        .msg-other { background-color: #fff; border: 1px solid #eee; }
+        .msg-meta { font-size: 0.75rem; color: #888; margin-top: 2px; }
+        
+        /* QUESTION CSS */
+        .question-block { background: #e9ecef; border-left: 4px solid #28a745; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+        .q-inputs input { width: 100%; margin-bottom: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+        .grid-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        
+        /* Buttons */
+        button { cursor: pointer; padding: 8px 15px; border: none; border-radius: 4px; font-weight: bold; color: white; }
+        .btn-connect { background: #17a2b8; }
+        .btn-send { background: #007bff; }
+        .btn-add { background: #28a745; width: 100%; margin-bottom: 10px; }
+        .btn-submit { background: #6610f2; width: 100%; }
+        .btn-remove { background: #dc3545; padding: 2px 8px; font-size: 0.8rem; float: right; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+#apiResponse { margin-top: 10px; white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; }
+    </style>
 </head>
 <body>
 
-  <div class="section">
-    <h2>🟡 Ví dụ đồng bộ (server-side PHP – mô phỏng)</h2>
-    <p>Trong lập trình đồng bộ, server sẽ tải RSS xong rồi mới gửi nội dung cho client.</p>
-    <pre style="background:#eee;padding:10px;border-radius:8px;"><code>
-&lt;?php
-$rss = simplexml_load_file("https://vnexpress.net/rss/tin-moi-nhat.rss");
-foreach ($rss-&gt;channel-&gt;item as $item) {
-  echo "&lt;li&gt;&lt;a href='{$item-&gt;link}'&gt;{$item-&gt;title}&lt;/a&gt;&lt;/li&gt;";
-}
-?&gt;
-    </code></pre>
-    <p><i>Đây là ví dụ để hiểu logic đồng bộ. Để chạy thật cần đặt trong server hỗ trợ PHP (XAMPP, v.v.)</i></p>
-  </div>
+<div class="container">
+    <div class="config-box">
+        <div class="form-group" style="flex: 2;">
+            <label>🔑 JWT Token:</label>
+            <input type="text" id="jwtToken" class="token-input" placeholder="Paste Token vào đây...">
+        </div>
+        <div class="form-group">
+            <label>🏠 Room ID:</label>
+            <input type="text" id="roomId" placeholder="VD: 8913">
+        </div>
+        <div class="form-group">
+            <label>👤 Tên bạn (Chat):</label>
+            <input type="text" id="username" placeholder="User1">
+        </div>
+    </div>
 
-  <div class="section">
-    <h2>🟢 Ví dụ bất đồng bộ (client-side JavaScript – hoạt động thật)</h2>
-    <p>Trang sẽ tải RSS từ VnExpress qua proxy, rồi hiển thị 10 tin mới nhất.</p>
-    <button onclick="fetchRSS()">Tải tin tức</button>
-    <ul id="newsList"></ul>
-  </div>
+    <div class="main-grid">
+        
+        <div class="card">
+            <h2>💬 Chat Room</h2>
+            <div style="margin-bottom: 10px;">
+                <button onclick="connectChat()" id="btnConnect" class="btn-connect">🔌 Kết nối WebSocket</button>
+                <span id="wsStatus" style="margin-left: 10px; font-size: 0.9rem; color: #666;">Chưa kết nối</span>
+            </div>
 
-  <script>
-    async function fetchRSS() {
-      const proxy = "https://api.allorigins.win/raw?url=";
-      const rssUrl = "https://vnexpress.net/rss/tin-moi-nhat.rss"; 
+            <div id="chatContainer" class="chat-box"></div>
+            
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="msgInput" placeholder="Nhập tin nhắn..." disabled style="flex:1; padding: 8px;">
+                <button onclick="sendChatMessage()" id="btnSendChat" class="btn-send" disabled>Gửi</button>
+            </div>
+        </div>
 
-      document.getElementById("newsList").innerHTML = "<li>Đang tải tin...</li>";
+        <div class="card">
+            <h2>❓ Thêm Câu Hỏi (Admin)</h2>
+            <div id="questionsList">
+                </div>
+            
+            <button onclick="addQuestionUI()" class="btn-add">+ Thêm câu hỏi</button>
+            <button onclick="submitQuestions()" class="btn-submit">🚀 Gửi bộ câu hỏi lên Server</button>
 
-      try {
-        let response = await fetch(proxy + encodeURIComponent(rssUrl));
-        let xmlText = await response.text();
+            <div id="apiResponse" style="color: #666;"></div>
+        </div>
 
-        let parser = new DOMParser();
-        let xmlDoc = parser.parseFromString(xmlText, "application/xml");
-        let items = xmlDoc.querySelectorAll("item");
+    </div>
+</div>
 
-        let html = "";
-        items.forEach((item, i) => {
-          if (i >= 10) return; // chỉ lấy 10 tin đầu
-          const title = item.querySelector("title").textContent;
-          const link = item.querySelector("link").textContent;
-          const pubDate = item.querySelector("pubDate")?.textContent || "";
-          html += `<li><a href="${link}" target="_blank">${title}</a><br><small>${pubDate}</small></li>`;
+<script>
+    // --- BIẾN TOÀN CỤC ---
+    let stompClient = null;
+    let currentRoomId = null;
+
+    // ==========================================
+    // 1. LOGIC WEBSOCKET (CHAT)
+    // ==========================================
+    function connectChat() {
+        const token = document.getElementById('jwtToken').value.trim();
+        const roomId = document.getElementById('roomId').value.trim();
+        const username = document.getElementById('username').value.trim();
+
+        if (!roomId) { alert("Chưa nhập Room ID!"); return; }
+
+        currentRoomId = roomId; // Lưu lại ID phòng
+
+        // Kết nối SockJS
+        const socket = new SockJS('http://localhost:8080/ws-quiz');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null; // Tắt log rác console
+
+        // ✅ TẠO HEADER AUTHENTICATION (QUAN TRỌNG)
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+
+        // Kết nối
+stompClient.connect(headers, function (frame) {
+            console.log('Connected: ' + frame);
+            
+            // Update UI
+            document.getElementById('wsStatus').innerText = "✅ Đã kết nối (Room " + roomId + ")";
+            document.getElementById('wsStatus').style.color = "green";
+            document.getElementById('btnConnect').disabled = true;
+            document.getElementById('msgInput').disabled = false;
+            document.getElementById('btnSendChat').disabled = false;
+
+            // Subscribe kênh Chat
+            stompClient.subscribe('/topic/chat/' + roomId, function (payload) {
+                const msg = JSON.parse(payload.body);
+                displayMessage(msg);
+            });
+            
+            // Subscribe kênh thông báo Room (nếu có ai thêm câu hỏi)
+            stompClient.subscribe('/topic/room/' + roomId, function (payload) {
+                const roomData = JSON.parse(payload.body);
+                appendSystemNotify("🔔 Cập nhật phòng: Có bộ câu hỏi mới!");
+                console.log("Room Updated:", roomData);
+            });
+
+            appendSystemNotify("Bạn đã vào phòng chat.");
+
+        }, function(error) {
+            console.error(error);
+            document.getElementById('wsStatus').innerText = "❌ Lỗi kết nối!";
+            document.getElementById('wsStatus').style.color = "red";
+        });
+    }
+
+    function sendChatMessage() {
+        const content = document.getElementById('msgInput').value.trim();
+        const username = document.getElementById('username').value.trim() || "Ẩn danh";
+
+        if (content && stompClient) {
+            const chatMsg = { sender: username, content: content };
+            
+            // Gửi lên Server
+            stompClient.send("/app/chat/" + currentRoomId + "/sendMessage", {}, JSON.stringify(chatMsg));
+            
+            document.getElementById('msgInput').value = ''; // Xóa ô nhập
+        }
+    }
+
+    function displayMessage(msg) {
+        const box = document.getElementById('chatContainer');
+        const div = document.createElement('div');
+        const myName = document.getElementById('username').value.trim();
+        
+        const isMe = msg.sender === myName;
+        div.className = 'message ' + (isMe ? 'msg-me' : 'msg-other');
+        
+        div.innerHTML = `
+            <strong>${isMe ? 'Bạn' : msg.sender}</strong>: ${msg.content}
+            <div class="msg-meta">${msg.timestamp}</div>
+        `;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function appendSystemNotify(text) {
+        const box = document.getElementById('chatContainer');
+        const div = document.createElement('div');
+        div.style.textAlign = 'center';
+        div.style.fontSize = '0.8rem';
+        div.style.color = '#888';
+        div.style.margin = '10px 0';
+        div.innerText = text;
+        box.appendChild(div);
+    }
+// ==========================================
+    // 2. LOGIC REST API (ADD QUESTIONS)
+    // ==========================================
+    
+    // Thêm 1 block câu hỏi mặc định khi vào trang
+    window.onload = function() {
+        addQuestionUI();
+    };
+
+    function addQuestionUI() {
+        const list = document.getElementById('questionsList');
+        const id = Date.now();
+        const html = `
+            <div class="question-block" id="q-${id}">
+                <button class="btn-remove" onclick="document.getElementById('q-${id}').remove()">X</button>
+                <div class="q-inputs">
+                    <input type="text" class="inp-content" placeholder="Nội dung câu hỏi...">
+                    <div class="grid-options">
+                        <input type="text" class="inp-optA" placeholder="A...">
+                        <input type="text" class="inp-optB" placeholder="B...">
+                        <input type="text" class="inp-optC" placeholder="C...">
+                        <input type="text" class="inp-optD" placeholder="D...">
+                    </div>
+                    <div style="margin-top:5px;">
+                        <label style="font-size:0.9rem;">Đúng:</label>
+                        <select class="inp-correct">
+                            <option value="A">A</option><option value="B">B</option>
+                            <option value="C">C</option><option value="D">D</option>
+                        </select>
+                    </div>
+                </div>
+            </div>`;
+        list.insertAdjacentHTML('beforeend', html);
+    }
+
+    async function submitQuestions() {
+        const token = document.getElementById('jwtToken').value.trim();
+        const roomId = document.getElementById('roomId').value.trim();
+        const resp = document.getElementById('apiResponse');
+
+        if (!token || !roomId) { alert("Thiếu Token hoặc Room ID!"); return; }
+
+        // Gom dữ liệu
+        const blocks = document.querySelectorAll('.question-block');
+        if(blocks.length === 0) { alert("Cần ít nhất 1 câu hỏi"); return; }
+
+        const questions = [];
+        blocks.forEach(b => {
+            questions.push({
+                content: b.querySelector('.inp-content').value,
+                optionA: b.querySelector('.inp-optA').value,
+                optionB: b.querySelector('.inp-optB').value,
+                optionC: b.querySelector('.inp-optC').value,
+                optionD: b.querySelector('.inp-optD').value,
+                correctAnswer: b.querySelector('.inp-correct').value
+            });
         });
 
-        document.getElementById("newsList").innerHTML = html || "<li>Không có tin nào.</li>";
-      } catch (err) {
-        document.getElementById("newsList").innerHTML = "<li>Lỗi tải RSS.</li>";
-        console.error(err);
-      }
+        const payload = { roomId: roomId, questions: questions };
+
+        resp.innerText = "⏳ Đang gửi...";
+        resp.style.color = "blue";
+
+        try {
+            const res = await fetch('http://localhost:8080/api/rooms/add-questions', {
+                method: 'POST',
+                headers: {
+'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch(e) { data = text; }
+
+            if (res.ok) {
+                resp.innerText = "✅ THÀNH CÔNG!\nServer đã nhận " + questions.length + " câu hỏi.";
+                resp.style.color = "green";
+                // Khi gửi thành công, bên khung Chat cũng sẽ nhận được thông báo nhờ WebSocket
+            } else {
+                resp.innerText = "❌ LỖI: " + JSON.stringify(data, null, 2);
+                resp.style.color = "red";
+            }
+        } catch (err) {
+            resp.innerText = "❌ Lỗi kết nối: " + err.message;
+            resp.style.color = "red";
+        }
     }
-  </script>
+</script>
 
 </body>
 </html>
