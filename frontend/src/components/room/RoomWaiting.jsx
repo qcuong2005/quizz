@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import roomService from '../../services/roomService';
+import { getCurrentUser } from '../../services/authService';
 import './RoomWaiting.css';
 
 const AVAILABLE_TOPICS = [
@@ -22,67 +24,92 @@ function RoomWaiting() {
     // Topic state
     const [selectedTopics, setSelectedTopics] = useState([]);
 
+    const [loading, setLoading] = useState(true);
+
     useEffect(() => {
+        let client = null;
 
-        if (!room) {
-            navigate('/room');
-            return;
-        }
+        const initRoom = async () => {
+            setLoading(true);
+            let currentRoom = room;
 
-        const userStr = localStorage.getItem("user");
-        const token = userStr ? JSON.parse(userStr).token : null;
-        if (!token) {
-            navigate('/login');
-            return;
-        }
+            // 1. Always fetch room from server for accuracy (Multiplayer)
+            if (roomId) {
+                try {
+                    const roomData = await roomService.getRoom(roomId);
+                    currentRoom = roomData;
+                    setRoom(roomData);
 
-        // Kết nối WebSocket
-        const socket = new SockJS('http://localhost:8080/ws-quiz');
-        const client = new Client({
-            webSocketFactory: () => socket,
-            connectHeaders: {
-                Authorization: `Bearer ${token}`
-            },
-            reconnectDelay: 5000,
-            onConnect: () => {
-                console.log('WebSocket connected');
-
-                // Subscribe to room updates
-                client.subscribe(`/topic/room/${roomId}`, (message) => {
-                    const data = JSON.parse(message.body);
-
-                    if (data.type === 'GAME_START') {
-                        // Game started, navigate to quiz
-                        navigate(`/quiz?topic=${data.topic}&room=${data.roomId}&host=${isHost}`, {
-                            state: {
-                                roomId: data.roomId,
-                                isMultiplayer: true,
-                                isHost: isHost
-                            }
-                        });
-                    } else {
-                        // Normal room update (players join/leave)
-                        setRoom(data);
+                    const user = getCurrentUser();
+                    if (user && roomData.host === user.username) {
+                        setIsHost(true);
                     }
-                });
-            },
-            onStompError: (frame) => {
-                console.error('STOMP error:', frame);
-                if (frame.headers['message']?.includes("chưa đăng nhập")) {
-                    navigate('/login');
+                } catch (err) {
+                    console.error("Error fetching room details:", err);
+                    navigate('/room');
+                    return;
                 }
             }
-        });
 
-        client.activate();
-        setStompClient(client);
+            if (!currentRoom) {
+                navigate('/room');
+                return;
+            }
+
+            setLoading(false);
+
+            // 2. Setup WebSocket
+            const userStr = localStorage.getItem("user");
+            const token = userStr ? JSON.parse(userStr).token : null;
+            if (!token) {
+                navigate('/login');
+                return;
+            }
+
+            const socket = new SockJS('http://localhost:8080/ws-quiz');
+            client = new Client({
+                webSocketFactory: () => socket,
+                connectHeaders: {
+                    Authorization: `Bearer ${token}`
+                },
+                reconnectDelay: 5000,
+                onConnect: () => {
+                    console.log('WebSocket connected');
+                    client.subscribe(`/topic/room/${roomId}`, (message) => {
+                        const data = JSON.parse(message.body);
+                        if (data.type === 'GAME_START') {
+                            navigate(`/quiz?topic=${data.topic}&room=${data.roomId}&host=${isHost}`, {
+                                state: { roomId: data.roomId, isMultiplayer: true, isHost: isHost }
+                            });
+                        } else if (data.type === 'ROOM_CANCELLED') {
+                            alert("Phòng đã bị hủy bởi chủ phòng!");
+                            navigate('/room');
+                        } else {
+                            setRoom(data);
+                        }
+                    });
+                },
+                onStompError: (frame) => {
+                    console.error('STOMP error:', frame);
+                    if (frame.headers['message']?.includes("chưa đăng nhập")) {
+                        navigate('/login');
+                    }
+                }
+            });
+
+            client.activate();
+            setStompClient(client);
+        };
+
+        initRoom();
 
         return () => {
             if (client) {
                 client.deactivate();
             }
         };
-    }, [roomId, room, navigate, isHost]);
+        // eslint-disable-next-line
+    }, [roomId, navigate]);
 
     const copyRoomId = () => {
         navigator.clipboard.writeText(roomId);
@@ -114,12 +141,40 @@ function RoomWaiting() {
         }
     };
 
-    const handleLeaveRoom = () => {
+    const handleLeaveRoom = async () => {
+        if (isHost) {
+            // If host, cancel room in DB
+            const userStr = localStorage.getItem("user");
+            const token = userStr ? JSON.parse(userStr).token : null;
+
+            try {
+                await fetch(`http://localhost:8080/api/rooms/cancel?roomId=${roomId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            } catch (err) {
+                console.error("Error cancelling room:", err);
+            }
+        }
+
         if (stompClient) {
             stompClient.deactivate();
         }
         navigate('/room');
     };
+
+    if (loading) {
+        return (
+            <div className="room-waiting">
+                <div className="waiting-container" style={{ textAlign: 'center', padding: '100px' }}>
+                    <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
+                    <h2 style={{ color: 'white' }}>Đang tải phòng...</h2>
+                </div>
+            </div>
+        );
+    }
 
     if (!room) return null;
 

@@ -14,34 +14,45 @@ import CreatePost from './components/forum/CreatePost';
 import ForumPostDetail from './components/forum/ForumPostDetail';
 import { ChatProvider } from './context/ChatContext';
 import ChatWindow from './components/chat/ChatWindow';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import './styles/GlobalStyles.css';
 import './App.css';
 
 function App() {
   return (
-    <ChatProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/quiz" element={<QuizGame />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/friends" element={<Friends />} />
-            <Route path="/room" element={<RoomLobby />} />
-            <Route path="/room/:roomId" element={<RoomWaiting />} />
-            <Route path="/room/:roomId/spectate" element={<SpectatorView />} />
+    <AuthProvider>
+      <ChatProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </ChatProvider>
+    </AuthProvider>
+  );
+}
 
-            {/* Forum Routes */}
-            <Route path="/forum" element={<ForumHome />} />
-            <Route path="/forum/new" element={<CreatePost />} />
-            <Route path="/forum/post/:id" element={<ForumPostDetail />} />
-          </Routes>
-          <ChatWindow />
-        </div>
-      </Router>
-    </ChatProvider>
+function AppContent() {
+  const { user } = useAuth();
+
+  return (
+    <div className="App">
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/quiz" element={<QuizGame />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/friends" element={<Friends />} />
+        <Route path="/room" element={<RoomLobby />} />
+        <Route path="/room/:roomId" element={<RoomWaiting />} />
+        <Route path="/room/:roomId/spectate" element={<SpectatorView />} />
+
+        {/* Forum Routes */}
+        <Route path="/forum" element={<ForumHome />} />
+        <Route path="/forum/new" element={<CreatePost />} />
+        <Route path="/forum/post/:id" element={<ForumPostDetail />} />
+      </Routes>
+      {user && <ChatWindow />}
+    </div>
   );
 }
 

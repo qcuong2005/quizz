@@ -1,19 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { getCurrentUser } from '../services/authService';
+import { useAuth } from './AuthContext';
 
 const ChatContext = createContext();
 
 export const useChat = () => useContext(ChatContext);
 
 export const ChatProvider = ({ children }) => {
+    const { user } = useAuth();
     const [activeChat, setActiveChat] = useState(null);
     const [isOpen, setIsOpen] = useState(false);
     const [stompClient, setStompClient] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
     const [incomingMessage, setIncomingMessage] = useState(null);
     const [typingStatus, setTypingStatus] = useState(null);
+    const [userStatusUpdate, setUserStatusUpdate] = useState(null);
     const clientRef = useRef(null);
 
     const [unreadCount, setUnreadCount] = useState(0);
@@ -27,7 +29,6 @@ export const ChatProvider = ({ children }) => {
 
     // Global WebSocket Connection
     const connect = useCallback(() => {
-        const user = getCurrentUser();
         if (!user || clientRef.current) return;
 
         const socket = new SockJS('http://localhost:8080/ws-quiz');
@@ -42,15 +43,20 @@ export const ChatProvider = ({ children }) => {
 
                 // Subscribe to messages globally
                 client.subscribe(`/user/queue/messages`, (message) => {
-                    const receivedMsg = JSON.parse(message.body);
-                    setIncomingMessage(receivedMsg);
+                    const data = JSON.parse(message.body);
 
-                    // Logic to count unread messages: 
-                    // If chat is NOT open, or open but with a different user, increment count
-                    const isChatOpenWithSender = isOpenRef.current && activeChatRef.current?.id === receivedMsg.senderId;
+                    if (data.type === 'USER_STATUS') {
+                        setUserStatusUpdate(data);
+                    } else {
+                        setIncomingMessage(data);
 
-                    if (!isChatOpenWithSender) {
-                        setUnreadCount(prev => prev + 1);
+                        // Logic to count unread messages: 
+                        // If chat is NOT open, or open but with a different user, increment count
+                        const isChatOpenWithSender = isOpenRef.current && activeChatRef.current?.id === data.senderId;
+
+                        if (!isChatOpenWithSender) {
+                            setUnreadCount(prev => prev + 1);
+                        }
                     }
                 });
 
@@ -83,9 +89,13 @@ export const ChatProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        connect();
+        if (user) {
+            connect();
+        } else {
+            disconnect();
+        }
         return () => disconnect();
-    }, [connect, disconnect]);
+    }, [user, connect, disconnect]);
 
     const openChat = useCallback((friend) => {
         setActiveChat(friend);
@@ -117,6 +127,7 @@ export const ChatProvider = ({ children }) => {
             isConnected,
             incomingMessage,
             typingStatus,
+            userStatusUpdate,
             connect,
             disconnect,
             unreadCount,

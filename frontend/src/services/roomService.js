@@ -33,14 +33,14 @@ const getValidToken = () => {
 
 const roomService = {
   // Tạo phòng mới
-  createRoom: async (roomName, capacity) => {
+  createRoom: async (roomName, capacity, maxQuestions = 10) => {
     try {
       const token = getValidToken();
       const response = await axios.post(
         `${API_URL}/create`,
         null,
         {
-          params: { roomName, capacity },
+          params: { roomName, capacity, maxQuestions },
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -78,10 +78,13 @@ const roomService = {
       // Try to get token if logged in, but don't fail if not
       let token = null;
       try {
-        token = getValidToken();
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          token = user.token;
+        }
       } catch (e) {
         // Not logged in, that's fine for spectator
-        console.log("Joined as Guest");
       }
 
       const config = {
@@ -100,6 +103,21 @@ const roomService = {
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message || 'Không thể vào xem phòng';
+    }
+  },
+
+  // Lấy thông tin phòng theo ID
+  getRoom: async (roomId) => {
+    try {
+      const token = getValidToken();
+      const response = await axios.get(`${API_URL}/${roomId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message || 'Không thể lấy thông tin phòng';
     }
   }
 };

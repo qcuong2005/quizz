@@ -7,6 +7,8 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -35,16 +37,24 @@ public class Room {
     @Column(name = "spectator_username")
     private Set<String> spectators = new HashSet<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private RoomStatus status = RoomStatus.WAITING;
+
+    @Column(name = "max_questions")
+    private int maxQuestions = 10; // Default value to avoid SQL error
+
     // 1. Constructor mặc định (Bắt buộc cho JPA)
     public Room() {
     }
 
     // 2. Constructor dùng để tạo mới
-    public Room(String roomId, String roomName, int capacity, String host) {
+    public Room(String roomId, String roomName, int capacity, String host, int maxQuestions) {
         this.roomId = roomId;
         this.roomName = roomName;
         this.capacity = capacity;
         this.host = host;
+        this.maxQuestions = maxQuestions;
         this.players.add(host);
     }
 
@@ -104,5 +114,21 @@ public class Room {
 
     public void setSpectators(Set<String> spectators) {
         this.spectators = spectators;
+    }
+
+    public RoomStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(RoomStatus status) {
+        this.status = status;
+    }
+
+    public int getMaxQuestions() {
+        return maxQuestions;
+    }
+
+    public void setMaxQuestions(int maxQuestions) {
+        this.maxQuestions = maxQuestions;
     }
 }

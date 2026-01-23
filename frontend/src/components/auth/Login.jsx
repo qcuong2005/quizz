@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { login } from '../../services/authService';
 import { useChat } from '../../context/ChatContext';
 import '../../styles/GlobalStyles.css';
 
 const Login = () => {
+    const { login: authLoginUser } = useAuth();
     const [formData, setFormData] = useState({
         username: '',
         password: ''
@@ -29,7 +31,7 @@ const Login = () => {
         try {
             const data = await login(formData.username, formData.password);
             console.log("Login success:", data);
-            connect();
+            authLoginUser(data); // Update AuthContext state
             navigate('/');
         } catch (err) {
             setError(err.message);

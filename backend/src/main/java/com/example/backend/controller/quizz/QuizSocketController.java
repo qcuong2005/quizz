@@ -10,6 +10,7 @@ import org.springframework.stereotype.Controller;
 import java.security.Principal;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.example.backend.entity.room.Room;
 
 @Controller
 public class QuizSocketController {
@@ -30,8 +31,24 @@ public class QuizSocketController {
     // Track users who answered current question: roomId -> Set<Username>
     private static final Map<String, java.util.Set<String>> roomAnsweredUsers = new ConcurrentHashMap<>();
 
+    // Track current question index for each room: roomId -> questionIndex
+    private static final Map<String, Integer> roomQuestionIndex = new ConcurrentHashMap<>();
+
     // Keep userStreaks for single player (or global streaks)
     private static final Map<String, Integer> userStreaks = new ConcurrentHashMap<>();
+
+    // --- REFRESH PERSISTENCE (F5 SUPPORT) ---
+    // roomId -> epochMillis (Start of current question)
+    private static final Map<String, Long> roomQuestionStartTime = new ConcurrentHashMap<>();
+
+    // username -> currentQuestion (Single Player)
+    private static final Map<String, com.example.backend.entity.quizz.Question> userCurrentQuestion = new ConcurrentHashMap<>();
+
+    // username -> epochMillis (Single Player question start)
+    private static final Map<String, Long> userQuestionStartTime = new ConcurrentHashMap<>();
+
+    // username -> topic (Single Player)
+    private static final Map<String, String> userCurrentTopic = new ConcurrentHashMap<>();
 
     public QuizSocketController(com.example.backend.service.quizz.QuestionService questionService,
             com.example.backend.repository.user.UserRepository userRepository,
@@ -49,8 +66,16 @@ public class QuizSocketController {
     @MessageMapping("/get-question")
     @SendTo("/topic/quiz")
     public Map<String, Object> getQuestion(String topic, Principal principal) {
-        // ...
-        return fetchQuestionData(topic);
+        String username = principal.getName();
+        com.example.backend.entity.quizz.Question q = questionService.getOrGenerateQuestion(topic);
+
+        userCurrentQuestion.put(username, q);
+        userQuestionStartTime.put(username, System.currentTimeMillis());
+        userCurrentTopic.put(username, topic);
+
+        Map<String, Object> response = fetchQuestionDataFromObj(q);
+        response.put("serverTime", System.currentTimeMillis());
+        return response;
     }
 
     // --- MULTIPLAYER ROOMS ---
@@ -69,6 +94,9 @@ public class QuizSocketController {
             Thread.sleep(2000);
         } catch (InterruptedException e) {
         }
+
+        // Reset question index to 0 or 1
+        roomQuestionIndex.put(roomId, 0);
         sendNextQuestionToRoom(roomId, topic);
     }
 
@@ -78,31 +106,125 @@ public class QuizSocketController {
     }
 
     private void sendNextQuestionToRoom(String roomId, String topic) {
-        com.example.backend.entity.quizz.Question q = questionService.getOrGenerateQuestion(topic);
-        roomCurrentQuestion.put(roomId, q);
-        // Reset answered users
-        roomAnsweredUsers.put(roomId, ConcurrentHashMap.newKeySet());
+        try {
+            Room room = roomService.getRoomById(roomId);
+            int currentIndex = roomQuestionIndex.getOrDefault(roomId, 0) + 1;
 
-        // Convert to response map
+            if (currentIndex > room.getMaxQuestions()) {
+                // GAME OVER
+                broadcastGameOver(roomId);
+                return;
+            }
+
+            roomQuestionIndex.put(roomId, currentIndex);
+
+            com.example.backend.entity.quizz.Question q = questionService.getOrGenerateQuestion(topic);
+            roomCurrentQuestion.put(roomId, q);
+            roomQuestionStartTime.put(roomId, System.currentTimeMillis()); // RECORD START TIME
+            // Reset answered users
+            roomAnsweredUsers.put(roomId, ConcurrentHashMap.newKeySet());
+
+            // Convert to response map
+            Map<String, Object> response = fetchQuestionDataFromObj(q);
+            response.put("type", "NEW_QUESTION");
+            response.put("currentQuestion", currentIndex);
+            response.put("totalQuestions", room.getMaxQuestions());
+            response.put("serverTime", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", response);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void broadcastGameOver(String roomId) {
+        Map<String, Object> gameOverSignal = new java.util.HashMap<>();
+        gameOverSignal.put("type", "GAME_OVER");
+
+        Map<String, Integer> scores = roomScores.get(roomId);
+        java.util.List<Map<String, Object>> leaderboard = new java.util.ArrayList<>();
+        if (scores != null) {
+            scores.forEach((u, s) -> {
+                leaderboard.add(Map.of("username", u, "score", s));
+            });
+        }
+        leaderboard.sort((a, b) -> ((Integer) b.get("score")).compareTo((Integer) a.get("score")));
+        gameOverSignal.put("leaderboard", leaderboard);
+
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", gameOverSignal);
+
+        // Mark room as FINISHED
+        roomService.finishRoom(roomId);
+
+        // Cleanup room memory state
+        roomQuestionIndex.remove(roomId);
+        roomCurrentQuestion.remove(roomId);
+        roomQuestionStartTime.remove(roomId);
+        roomScores.remove(roomId);
+        roomAnsweredUsers.remove(roomId);
+    }
+
+    // --- RECONNECT LOGIC ---
+    @MessageMapping("/quiz/reconnect")
+    public void reconnect(String jsonString, Principal principal) {
+        String username = principal.getName();
+        Gson gson = new Gson();
+        JsonObject input = gson.fromJson(jsonString, JsonObject.class);
+
+        String roomId = input.has("roomId") ? input.get("roomId").getAsString() : null;
+        String requestedTopic = input.has("topic") ? input.get("topic").getAsString() : null;
+        boolean isMultiplayer = roomId != null && !roomId.isEmpty();
+
         Map<String, Object> response = new java.util.HashMap<>();
-        response.put("type", "NEW_QUESTION");
-        response.put("question", q.getContent());
-        response.put("topic", q.getTopic());
-        response.put("id", q.getId());
+        response.put("type", "RECONNECT_STATE");
+        response.put("serverTime", System.currentTimeMillis());
 
-        java.util.List<String> options = new java.util.ArrayList<>();
-        if (q.getOptionA() != null)
-            options.add(q.getOptionA());
-        if (q.getOptionB() != null)
-            options.add(q.getOptionB());
-        if (q.getOptionC() != null)
-            options.add(q.getOptionC());
-        if (q.getOptionD() != null)
-            options.add(q.getOptionD());
-        response.put("options", options);
-        // Do NOT send correct answer yet!
+        if (isMultiplayer) {
+            com.example.backend.entity.quizz.Question q = roomCurrentQuestion.get(roomId);
+            if (q != null) {
+                response.put("active", true);
+                response.putAll(fetchQuestionDataFromObj(q));
+                response.put("roomId", roomId);
+                response.put("isMultiplayer", true);
+                response.put("startTime", roomQuestionStartTime.get(roomId));
+                response.put("currentQuestion", roomQuestionIndex.get(roomId));
 
-        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", response);
+                Room room = roomService.getRoomById(roomId);
+                response.put("totalQuestions", room.getMaxQuestions());
+
+                // Add current leaderboard
+                Map<String, Integer> scores = roomScores.get(roomId);
+                response.put("roomScore", scores != null ? scores.getOrDefault(username, 0) : 0);
+            } else {
+                response.put("active", false);
+            }
+        } else {
+            // Single Player
+            com.example.backend.entity.quizz.Question q = userCurrentQuestion.get(username);
+            String activeTopic = userCurrentTopic.get(username);
+
+            // Only reconnect if the topic matches or is null
+            if (q != null && (requestedTopic == null || requestedTopic.equals(activeTopic))) {
+                response.put("active", true);
+                response.putAll(fetchQuestionDataFromObj(q));
+                response.put("isMultiplayer", false);
+                response.put("startTime", userQuestionStartTime.get(username));
+                response.put("topic", userCurrentTopic.get(username));
+            } else {
+                response.put("active", false);
+            }
+        }
+        messagingTemplate.convertAndSendToUser(username, "/queue/private", response);
+    }
+
+    @MessageMapping("/quiz/clear-session")
+    public void clearSession(Principal principal) {
+        String username = principal.getName();
+        userCurrentQuestion.remove(username);
+        userQuestionStartTime.remove(username);
+        userCurrentTopic.remove(username);
+        userStreaks.remove(username);
+        System.out.println("Cleared single-player session for: " + username);
     }
 
     // 2. Submit Answer (Multiplayer)
@@ -212,14 +334,13 @@ public class QuizSocketController {
         messagingTemplate.convertAndSend("/topic/room/" + roomId + "/game", roundResult);
     }
 
-    // Helper for Single Player (Keep existing logic)
-    private Map<String, Object> fetchQuestionData(String topic) {
-        com.example.backend.entity.quizz.Question q = questionService.getOrGenerateQuestion(topic);
+    // Helper to format Question object for JSON response
+    private Map<String, Object> fetchQuestionDataFromObj(com.example.backend.entity.quizz.Question q) {
         Map<String, Object> response = new java.util.HashMap<>();
         response.put("question", q.getContent());
         response.put("topic", q.getTopic());
-        response.put("correctAnswer", q.getCorrectAnswer());
         response.put("id", q.getId());
+
         java.util.List<String> options = new java.util.ArrayList<>();
         if (q.getOptionA() != null)
             options.add(q.getOptionA());
@@ -230,8 +351,10 @@ public class QuizSocketController {
         if (q.getOptionD() != null)
             options.add(q.getOptionD());
         response.put("options", options);
-        if (q.getExplanation() != null)
+
+        if (q.getExplanation() != null) {
             response.put("explanation", q.getExplanation());
+        }
         return response;
     }
 
@@ -252,10 +375,18 @@ public class QuizSocketController {
         Gson gson = new Gson();
         JsonObject input = gson.fromJson(jsonMessage, JsonObject.class);
 
-        String userAns = input.get("userAnswer").getAsString();
-        String correctAns = input.get("correctAnswer").getAsString();
+        String userAns = (input.has("userAnswer") && !input.get("userAnswer").isJsonNull())
+                ? input.get("userAnswer").getAsString()
+                : "TIMEOUT";
+
+        // Get the actual correct answer from server state for security and correctness
+        com.example.backend.entity.quizz.Question currentQ = userCurrentQuestion.get(currentUsername);
+        String correctAns = (currentQ != null) ? currentQ.getCorrectAnswer() : "";
+
         // Mặc định 0 nếu không gửi lên
-        int timeLeft = input.has("timeLeft") ? input.get("timeLeft").getAsInt() : 0;
+        int timeLeft = (input.has("timeLeft") && !input.get("timeLeft").isJsonNull())
+                ? input.get("timeLeft").getAsInt()
+                : 0;
 
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("username", currentUsername);

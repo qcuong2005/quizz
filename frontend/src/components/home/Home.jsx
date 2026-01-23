@@ -1,22 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { getCurrentUser, logout, refreshUserData } from '../../services/authService';
 import Header from '../layout/Header';
 import '../../styles/GlobalStyles.css';
 import { Calculator, Atom, BookOpen, Landmark, Globe, Languages, BrainCircuit, Scroll, Sun, CloudRain, Leaf, Snowflake, Sparkles, Search, Trophy, Flame, Star, Target } from 'lucide-react';
 
 const Home = () => {
-    const [user, setUser] = useState(getCurrentUser());
+    const { user, setUser } = useAuth();
     const navigate = useNavigate();
     const [theme, setTheme] = useState('default');
     const [searchTerm, setSearchTerm] = useState('');
     // Detect season
     useEffect(() => {
-        const currentUser = getCurrentUser();
-        setUser(currentUser);
-
         // Always fetch fresh data from server
-        if (currentUser) {
+        if (user) {
             refreshUserData().then(updated => {
                 if (updated) setUser(updated);
             });

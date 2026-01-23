@@ -28,7 +28,7 @@ const Friends = () => {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [friendToDelete, setFriendToDelete] = useState(null);
     const navigate = useNavigate();
-    const { openChat } = useChat();
+    const { openChat, userStatusUpdate } = useChat();
 
     useEffect(() => {
         const currentUser = getCurrentUser();
@@ -40,6 +40,17 @@ const Friends = () => {
         loadFriends();
         loadRequests();
     }, [navigate]);
+
+    // Handle real-time status updates
+    useEffect(() => {
+        if (userStatusUpdate) {
+            setFriends(prev => prev.map(f =>
+                f.username === userStatusUpdate.username
+                    ? { ...f, online: userStatusUpdate.online }
+                    : f
+            ));
+        }
+    }, [userStatusUpdate]);
 
     const loadFriends = async () => {
         try {

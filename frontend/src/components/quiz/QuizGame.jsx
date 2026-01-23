@@ -44,6 +44,7 @@ const QuizGame = () => {
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [selectedOption, setSelectedOption] = useState(null); // NEW: Track selected option
     const [roundLeaderboard, setRoundLeaderboard] = useState(null);
+    const [gameOverLeaderboard, setGameOverLeaderboard] = useState(null);
 
     // NEW: Fetch fresh score on mount
     useEffect(() => {
@@ -95,78 +96,96 @@ const QuizGame = () => {
                 Authorization: `Bearer ${token}`
             },
             onConnect: () => {
+                // --- 1. SHARED PRIVATE SUBSCRIPTION ---
+                stompClient.subscribe(`/user/queue/private`, (message) => {
+                    const data = JSON.parse(message.body);
+
+                    if (data.type === 'ANSWER_RESULT') {
+                        const isTimeout = timeLeftRef.current <= 0;
+                        setResult({
+                            message: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? `Chính xác! +${data.scoreAdded}` : "Sai rồi!"),
+                            score: data.scoreAdded,
+                            isCorrect: data.isCorrect,
+                            correctAnswer: data.correctAnswer,
+                            totalScore: data.totalScore
+                        });
+
+                        if (data.totalScore !== undefined) {
+                            setScore(data.totalScore);
+                        } else if (data.scoreAdded > 0) {
+                            setScore(prev => prev + data.scoreAdded);
+                        }
+
+                        const currentQ = questionRef.current;
+                        if (currentQ) {
+                            setSessionHistory(prev => [
+                                ...prev,
+                                {
+                                    question: currentQ,
+                                    userAnswer: data.userAnswer || "TIMEOUT",
+                                    correctAnswer: data.correctAnswer,
+                                    isCorrect: data.isCorrect,
+                                    explanation: currentQ.explanation,
+                                    resultMessage: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? "Đúng" : "Sai")
+                                }
+                            ]);
+                        }
+                        setShowResult(true);
+                    } else if (data.type === 'RECONNECT_STATE') {
+                        if (data.active) {
+                            console.log("Reconnected to state:", data);
+                            setQuestion(data);
+                            setLoading(false);
+
+                            const elapsed = (data.serverTime - data.startTime) / 1000;
+                            const remaining = Math.max(0, Math.floor(45 - elapsed));
+                            setTimeLeft(remaining);
+
+                            if (data.roomScore !== undefined) setScore(data.roomScore);
+
+                            setResult(null);
+                            setShowResult(false);
+                            setHasSubmitted(false);
+                            setSelectedOption(null);
+                        } else if (!isMultiplayer) {
+                            // No active session for single player, start new game
+                            requestQuestion(stompClientRef.current, topic);
+                        }
+                    }
+                });
+
                 if (isMultiplayer) {
                     // --- MULTIPLAYER MODE ---
                     console.log(`Connected to Multiplayer Room: ${roomId}`);
 
-                    // 1. Subscribe to PUBLIC Room Events
                     stompClient.subscribe(`/topic/room/${roomId}/game`, (message) => {
                         const data = JSON.parse(message.body);
-
                         if (data.type === 'NEW_QUESTION') {
                             setQuestion(data);
                             setLoading(false);
                             setTimeLeft(45);
                             setResult(null);
                             setShowResult(false);
-                            setShowResult(false);
                             setHasSubmitted(false);
                             setRoundLeaderboard(null);
-                            setSelectedOption(null); // Reset selection
+                            setSelectedOption(null);
                         } else if (data.type === 'PLAYER_SUBMITTED') {
-                            // Optional: Show "User X has answered" toast
                             console.log(`User ${data.username} submitted`);
                         } else if (data.type === 'ROUND_OVER') {
-                            // Handle Round Over
-                            console.log("Round Over", data);
                             setRoundLeaderboard(data.leaderboard);
-                            if (!showResult) {
-                                setShowResult(true); // Force show result if not already
-                            }
-                        }
-                    });
-
-                    // 2. Subscribe to PRIVATE User Events (For secure result)
-                    stompClient.subscribe(`/user/queue/private`, (message) => {
-                        const data = JSON.parse(message.body);
-                        if (data.type === 'ANSWER_RESULT') {
-                            const isTimeout = timeLeftRef.current <= 0;
-                            setResult({
-                                message: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? `Chính xác! +${data.scoreAdded}` : "Sai rồi!"),
-                                score: data.scoreAdded,
-                                isCorrect: data.isCorrect,
-                                correctAnswer: data.correctAnswer,
-                                totalScore: data.totalScore // Sync total score
-                            });
-
-                            // Update local running score
-                            if (data.totalScore !== undefined) {
-                                setScore(data.totalScore);
-                            } else if (data.scoreAdded > 0) {
-                                setScore(prev => prev + data.scoreAdded);
-                            }
-
-                            // Add to history
-                            const currentQ = questionRef.current;
-                            if (currentQ) {
-                                setSessionHistory(prev => [
-                                    ...prev,
-                                    {
-                                        question: currentQ,
-                                        userAnswer: data.userAnswer || "TIMEOUT",
-                                        correctAnswer: data.correctAnswer,
-                                        isCorrect: data.isCorrect,
-                                        explanation: currentQ.explanation,
-                                        resultMessage: isTimeout ? "⏰ Hết giờ!" : (data.isCorrect ? "Đúng" : "Sai")
-                                    }
-                                ]);
-                            }
-
                             setShowResult(true);
+                        } else if (data.type === 'GAME_OVER') {
+                            setGameOverLeaderboard(data.leaderboard);
                         }
                     });
 
-                    // Multiplayer: Wait for host/server to send first question
+                    // Trigger Reconnect for Multiplayer
+                    if (roomId) {
+                        stompClient.publish({
+                            destination: "/app/quiz/reconnect",
+                            body: JSON.stringify({ roomId: roomId })
+                        });
+                    }
                     setLoading(true);
 
                 } else {
@@ -181,11 +200,11 @@ const QuizGame = () => {
                             }
                             setQuestion(receivedQuestion);
                             setLoading(false);
-                            setTimeLeft(45); // Fixed time limit
+                            setTimeLeft(45);
                             setResult(null);
                             setShowResult(false);
                             setHasSubmitted(false);
-                            setSelectedOption(null); // Reset selection
+                            setSelectedOption(null);
                         } catch (e) {
                             setLoading(false);
                             alert("Lỗi khi xử lý câu hỏi từ AI.");
@@ -200,7 +219,6 @@ const QuizGame = () => {
                                 setScore(prev => prev + resultData.score);
                             }
 
-                            // Add to history
                             const currentQ = questionRef.current;
                             if (currentQ) {
                                 setSessionHistory(prev => [
@@ -218,8 +236,13 @@ const QuizGame = () => {
                         }
                     });
 
-                    // Start Game immediately
-                    requestQuestion(stompClient, topic);
+                    // Trigger Reconnect or Start for Single Player
+                    if (topic) {
+                        stompClient.publish({
+                            destination: "/app/quiz/reconnect",
+                            body: JSON.stringify({ topic: topic })
+                        });
+                    }
                 }
             },
             onStompError: (frame) => {
@@ -387,6 +410,9 @@ const QuizGame = () => {
     };
 
     const handleSkip = () => {
+        if (!hasSubmitted) {
+            handleAnswer("TIMEOUT");
+        }
         setShowResult(true);
     };
 
@@ -415,6 +441,9 @@ const QuizGame = () => {
                         if (sessionHistory.length > 0) {
                             setShowReviewBoard(true);
                         } else {
+                            if (stompClientRef.current && !isMultiplayer) {
+                                stompClientRef.current.publish({ destination: '/app/quiz/clear-session' });
+                            }
                             await refreshUserData();
                             navigate('/');
                         }
@@ -449,6 +478,15 @@ const QuizGame = () => {
                         <span>Thời gian còn lại</span>
                         <span style={{ color: timeLeft <= 5 ? '#ff4b2b' : 'white' }}>{timeLeft}s</span>
                     </div>
+
+                    {isMultiplayer && question && question.currentQuestion && (
+                        <div className="game-progress" style={{
+                            fontSize: '0.9rem', color: 'var(--accent-cyan)',
+                            fontWeight: 'bold', marginBottom: '5px'
+                        }}>
+                            Question {question.currentQuestion} / {question.totalQuestions}
+                        </div>
+                    )}
 
                     {/* SKIP BUTTON */}
                     {hasSubmitted && !showResult && (
@@ -577,67 +615,134 @@ const QuizGame = () => {
                     )}
 
                     {/* Result Overlay */}
-                    {showResult && result && (
-                        <div className={`result-overlay ${result.score > 0 ? 'correct' : 'wrong'}`}>
-                            <h2 className="result-title" style={{ color: result.score > 0 ? '#00ff88' : '#ff416c' }}>
-                                {result.message}
-                            </h2>
+                    {showResult && (
+                        result ? (
+                            <div className={`result-overlay ${result.score > 0 ? 'correct' : 'wrong'}`}>
+                                <h2 className="result-title" style={{ color: result.score > 0 ? '#00ff88' : '#ff416c' }}>
+                                    {result.message}
+                                </h2>
 
-                            {result.streakBonus > 0 && (
-                                <p className="streak-bonus">
-                                    🔥 Streak Bonus: +{result.streakBonus}
-                                </p>
-                            )}
-
-                            {/* Multiplayer Round Leaderboard */}
-                            {roundLeaderboard && (
-                                <div style={{ width: '100%', maxWidth: '600px', marginBottom: '20px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '15px' }}>
-                                    <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-yellow)', marginBottom: '10px', textAlign: 'center' }}>🏆 Bảng Xếp Hạng Vòng Này</h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {roundLeaderboard.map((p, idx) => (
-                                            <div key={idx} style={{
-                                                display: 'flex', justifyContent: 'space-between',
-                                                padding: '8px 15px',
-                                                background: p.username === user.username ? 'rgba(0, 212, 255, 0.2)' : 'rgba(255,255,255,0.05)',
-                                                borderRadius: '8px',
-                                                border: p.username === user.username ? '1px solid var(--accent-cyan)' : 'none'
-                                            }}>
-                                                <span style={{ fontWeight: 'bold' }}>#{idx + 1} {p.username}</span>
-                                                <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>{p.score} pts</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Explanation Section */}
-                            {question && question.explanation && (
-                                <div className="explanation-box">
-                                    <h4 className="explanation-title">
-                                        💡 Explanation
-                                    </h4>
-                                    <p className="explanation-text">
-                                        <RenderWithMath text={question.explanation} />
+                                {result.streakBonus > 0 && (
+                                    <p className="streak-bonus">
+                                        🔥 Streak Bonus: +{result.streakBonus}
                                     </p>
-                                </div>
-                            )}
+                                )}
 
-                            {(!isMultiplayer || (isMultiplayer && isHost)) ? (
-                                <button
-                                    className="next-btn"
-                                    onClick={handleNextQuestion}
-                                >
-                                    Next Question ➡️
-                                </button>
-                            ) : (
-                                <div className="waiting-host">
-                                    <div className="loading-spinner" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'var(--accent-cyan)' }}></div>
-                                    Waiting for host...
+                                {/* Multiplayer Round Leaderboard */}
+                                {roundLeaderboard && (
+                                    <div style={{ width: '100%', maxWidth: '600px', marginBottom: '20px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '15px' }}>
+                                        <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-yellow)', marginBottom: '10px', textAlign: 'center' }}>🏆 Bảng Xếp Hạng Vòng Này</h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {roundLeaderboard.map((p, idx) => {
+                                                if (!p) return null;
+                                                const isCurrentUser = user && p.username === user.username;
+                                                return (
+                                                    <div key={idx} style={{
+                                                        display: 'flex', justifyContent: 'space-between',
+                                                        padding: '8px 15px',
+                                                        background: isCurrentUser ? 'rgba(0, 212, 255, 0.2)' : 'rgba(255,255,255,0.05)',
+                                                        borderRadius: '8px',
+                                                        border: isCurrentUser ? '1px solid var(--accent-cyan)' : 'none'
+                                                    }}>
+                                                        <span style={{ fontWeight: 'bold' }}>#{idx + 1} {p.username}</span>
+                                                        <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>{p.score} pts</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Explanation Section */}
+                                {question && question.explanation && (
+                                    <div className="explanation-box">
+                                        <h4 className="explanation-title">
+                                            💡 Explanation
+                                        </h4>
+                                        <p className="explanation-text">
+                                            <RenderWithMath text={question.explanation} />
+                                        </p>
+                                    </div>
+                                )}
+
+                                {(!isMultiplayer || (isMultiplayer && isHost)) ? (
+                                    <button
+                                        className="next-btn"
+                                        onClick={handleNextQuestion}
+                                    >
+                                        Next Question ➡️
+                                    </button>
+                                ) : (
+                                    <div className="waiting-host">
+                                        <div className="loading-spinner" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'var(--accent-cyan)' }}></div>
+                                        Waiting for host...
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="result-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
+                                <div className="glass-card" style={{ padding: '40px', textAlign: 'center' }}>
+                                    <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
+                                    <h2 style={{ color: 'var(--accent-cyan)' }}>Đang tải kết quả...</h2>
+                                    <p style={{ opacity: 0.7, marginTop: '10px' }}>Vui lòng đợi giây lát</p>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )
                     )}
                 </div>
+
+                {/* Game Over Leaderboard Overlay */}
+                {gameOverLeaderboard && (
+                    <div className="result-overlay" style={{ background: 'rgba(0,0,0,0.95)', zIndex: 1100 }}>
+                        <div className="glass-card" style={{ padding: '40px', width: '90%', maxWidth: '600px', textAlign: 'center' }}>
+                            <h1 style={{ color: 'var(--accent-yellow)', fontSize: '2.5rem', marginBottom: '30px' }}>👑 BẢNG XẾP HẠNG CHUNG CUỘC</h1>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '40px' }}>
+                                {gameOverLeaderboard.map((p, idx) => {
+                                    if (!p) return null;
+                                    const isCurrentUser = user && p.username === user.username;
+                                    return (
+                                        <div key={idx} style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '15px 25px',
+                                            background: isCurrentUser ? 'rgba(0, 212, 255, 0.2)' : 'rgba(255,255,255,0.05)',
+                                            borderRadius: '15px',
+                                            border: isCurrentUser ? '2px solid var(--accent-cyan)' : '1px solid rgba(255,255,255,0.1)',
+                                            transform: idx === 0 ? 'scale(1.05)' : 'scale(1)',
+                                            boxShadow: idx === 0 ? '0 0 20px rgba(255, 215, 0, 0.2)' : 'none'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: idx === 0 ? '#ffd700' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : 'white' }}>
+                                                    #{idx + 1}
+                                                </span>
+                                                <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{p.username}</span>
+                                                {isCurrentUser && <span style={{ fontSize: '0.8rem', background: 'var(--accent-cyan)', color: 'black', padding: '2px 8px', borderRadius: '10px' }}>YOU</span>}
+                                            </div>
+                                            <span style={{ fontSize: '1.4rem', color: 'var(--accent-green)', fontWeight: 'bold' }}>{p.score} pts</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => navigate('/room')}
+                                    style={{ padding: '12px 30px' }}
+                                >
+                                    🚪 Rời Phòng
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => navigate('/')}
+                                    style={{ padding: '12px 30px' }}
+                                >
+                                    🏠 Về Trang Chủ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* REVIEW BOARD OVERLAY */}
@@ -664,14 +769,12 @@ const QuizGame = () => {
                                             <RenderWithMath text={item.userAnswer} />
                                         </div>
                                     </div>
-                                    {!item.isCorrect && (
-                                        <div style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                            <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Đáp án đúng:</div>
-                                            <div style={{ color: '#00ff88', fontWeight: 'bold' }}>
-                                                <RenderWithMath text={item.correctAnswer} />
-                                            </div>
+                                    <div style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Đáp án đúng:</div>
+                                        <div style={{ color: '#00ff88', fontWeight: 'bold' }}>
+                                            <RenderWithMath text={item.correctAnswer} />
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
 
                                 {item.explanation && (
@@ -721,6 +824,9 @@ const QuizGame = () => {
                             className="btn-primary"
                             style={{ padding: '12px 30px', fontSize: '1.1rem' }}
                             onClick={async () => {
+                                if (stompClientRef.current && !isMultiplayer) {
+                                    stompClientRef.current.publish({ destination: '/app/quiz/clear-session' });
+                                }
                                 await refreshUserData();
                                 navigate('/');
                             }}

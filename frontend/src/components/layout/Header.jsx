@@ -3,12 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout } from '../../services/authService';
 import { getPendingRequests } from '../../services/friendService';
 import ChatListPopup from '../chat/ChatListPopup';
+import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { MessageCircle } from 'lucide-react';
-import '../../styles/GlobalStyles.css';
 
 const Header = () => {
-    const user = getCurrentUser();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [pendingCount, setPendingCount] = useState(0);
     const [showChatPopup, setShowChatPopup] = useState(false);

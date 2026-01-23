@@ -11,6 +11,7 @@ function RoomLobby() {
     const [mode, setMode] = useState('menu'); // 'menu', 'create', 'join', 'spectate'
     const [roomName, setRoomName] = useState('');
     const [capacity, setCapacity] = useState(2);
+    const [maxQuestions, setMaxQuestions] = useState(10);
     const [roomId, setRoomId] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -36,7 +37,7 @@ function RoomLobby() {
         setLoading(true);
 
         try {
-            const room = await roomService.createRoom(roomName, capacity);
+            const room = await roomService.createRoom(roomName, capacity, maxQuestions);
             navigate(`/room/${room.roomId}`, { state: { room, isHost: true } });
         } catch (err) {
             if (err.response?.status === 403) {
@@ -169,6 +170,22 @@ function RoomLobby() {
                                             onClick={() => setCapacity(num)}
                                         >
                                             {num} người
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Số Câu Hỏi:</label>
+                                <div className="capacity-selector">
+                                    {[5, 10, 15, 20].map(num => (
+                                        <button
+                                            key={num}
+                                            type="button"
+                                            className={`capacity-btn ${maxQuestions === num ? 'active' : ''}`}
+                                            onClick={() => setMaxQuestions(num)}
+                                        >
+                                            {num} câu
                                         </button>
                                     ))}
                                 </div>

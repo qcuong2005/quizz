@@ -6,12 +6,23 @@ import './ChatListPopup.css';
 
 const ChatListPopup = ({ onClose }) => {
     const [friends, setFriends] = useState([]);
-    const { openChat } = useChat();
+    const { openChat, userStatusUpdate } = useChat();
     const navigate = useNavigate();
 
     useEffect(() => {
         loadFriends();
     }, []);
+
+    // Handle real-time status updates
+    useEffect(() => {
+        if (userStatusUpdate) {
+            setFriends(prev => prev.map(f =>
+                f.username === userStatusUpdate.username
+                    ? { ...f, online: userStatusUpdate.online }
+                    : f
+            ));
+        }
+    }, [userStatusUpdate]);
 
     const loadFriends = async () => {
         try {

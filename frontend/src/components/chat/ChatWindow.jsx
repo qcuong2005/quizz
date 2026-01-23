@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../../context/ChatContext';
-import { getCurrentUser } from '../../services/authService';
+import { useAuth } from '../../context/AuthContext';
 import { getChatHistory, uploadFile } from '../../services/chatService';
 import { useLocation } from 'react-router-dom';
 import { Paperclip, Image as ImageIcon, Smile, Mic, Send, X, File as FileIcon, Play, Pause, Minus } from 'lucide-react';
@@ -9,8 +9,8 @@ import './ChatWindow.css';
 
 const ChatWindow = () => {
     const { activeChat, isOpen, closeChat, stompClient, isConnected, incomingMessage, typingStatus } = useChat();
+    const { user: currentUser } = useAuth();
     const location = useLocation();
-    const currentUser = getCurrentUser();
     const shouldHide = location.pathname === '/chat';
 
     const [messages, setMessages] = useState([]);

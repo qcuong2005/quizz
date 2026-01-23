@@ -14,9 +14,15 @@ import com.example.backend.repository.user.UserRepository;
 public class WebSocketEventListener {
 
     private final UserRepository userRepository;
+    private final com.example.backend.repository.user.FriendshipRepository friendshipRepository;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
-    public WebSocketEventListener(UserRepository userRepository) {
+    public WebSocketEventListener(UserRepository userRepository,
+            com.example.backend.repository.user.FriendshipRepository friendshipRepository,
+            org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate) {
         this.userRepository = userRepository;
+        this.friendshipRepository = friendshipRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @EventListener
@@ -45,8 +51,26 @@ public class WebSocketEventListener {
         userRepository.findByUsername(username).ifPresent(user -> {
             user.setOnline(isOnline);
             userRepository.save(user);
-            // System.out.println("User " + username + " is now " + (isOnline ? "ONLINE" :
-            // "OFFLINE"));
+
+            // BROADCAST STATUS TO FRIENDS
+            broadcastStatusToFriends(user.getId(), username, isOnline);
         });
+    }
+
+    private void broadcastStatusToFriends(Long userId, String username, boolean isOnline) {
+        java.util.List<com.example.backend.entity.user.Friendship> friendships = friendshipRepository
+                .findAllByUserId(userId);
+
+        java.util.Map<String, Object> statusMessage = new java.util.HashMap<>();
+        statusMessage.put("type", "USER_STATUS");
+        statusMessage.put("username", username);
+        statusMessage.put("online", isOnline);
+
+        for (com.example.backend.entity.user.Friendship f : friendships) {
+            Long friendId = (f.getUserId().equals(userId)) ? f.getFriendId() : f.getUserId();
+            userRepository.findById(friendId).ifPresent(friend -> {
+                messagingTemplate.convertAndSendToUser(friend.getUsername(), "/queue/messages", statusMessage);
+            });
+        }
     }
 }
